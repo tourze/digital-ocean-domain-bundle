@@ -2,6 +2,7 @@
 
 namespace DigitalOceanDomainBundle\Entity;
 
+use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -88,6 +89,12 @@ class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringa
     #[ExportColumn]
     #[ORM\Column(type: Types::STRING, length: 10, nullable: true, options: ['comment' => '标签'])]
     private ?string $tag = null;
+
+    #[ListColumn]
+    #[ExportColumn]
+    #[ORM\ManyToOne(targetEntity: DigitalOceanConfig::class)]
+    #[ORM\JoinColumn(name: 'config_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?DigitalOceanConfig $config = null;
 
     #[Filterable]
     #[IndexColumn]
@@ -230,6 +237,17 @@ class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringa
         return $this;
     }
 
+    public function getConfig(): ?DigitalOceanConfig
+    {
+        return $this->config;
+    }
+
+    public function setConfig(?DigitalOceanConfig $config): self
+    {
+        $this->config = $config;
+        return $this;
+    }
+
     public function setCreateTime(?\DateTimeInterface $createdAt): void
     {
         $this->createTime = $createdAt;
@@ -265,6 +283,7 @@ class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringa
             'weight' => $this->getWeight(),
             'flags' => $this->getFlags(),
             'tag' => $this->getTag(),
+            'config' => $this->getConfig()?->getId(),
             'createTime' => $this->getCreateTime()?->format('Y-m-d H:i:s'),
             'updateTime' => $this->getUpdateTime()?->format('Y-m-d H:i:s'),
         ];

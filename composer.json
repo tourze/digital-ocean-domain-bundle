@@ -1,10 +1,25 @@
 {
   "name": "tourze/digital-ocean-domain-bundle",
-  "description": "域名管理",
+  "description": "DigitalOcean域名管理",
   "type": "symfony-bundle",
   "license": "MIT",
   "require": {
     "php": "^8.1",
+    "psr/log": "^3|^2|^1",
+    "doctrine/collections": "^2.3",
+    "doctrine/common": "^3.5",
+    "doctrine/dbal": "^4.0",
+    "doctrine/persistence": "^3.1 || ^4",
+    "doctrine/orm": "^3.0",
+    "doctrine/doctrine-bundle": "^2.13",
+    "symfony/framework-bundle": "^6.4",
+    "symfony/console": "^6.4",
+    "symfony/config": "^6.4",
+    "symfony/dependency-injection": "^6.4",
+    "symfony/http-kernel": "^6.4",
+    "symfony/lock": "^6.4",
+    "symfony/yaml": "^6.4 || ^7.1",
+    "tourze/arrayable": "0.0.*",
     "tourze/digital-ocean-account-bundle": "0.0.*"
   },
   "autoload": {

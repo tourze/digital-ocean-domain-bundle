@@ -3,11 +3,11 @@
 namespace DigitalOceanDomainBundle\Service;
 
 use DigitalOceanAccountBundle\Client\DigitalOceanClient;
-use DigitalOceanAccountBundle\Entity\Domain;
-use DigitalOceanAccountBundle\Repository\DomainRepository;
 use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
+use DigitalOceanDomainBundle\Entity\Domain;
 use DigitalOceanDomainBundle\Entity\DomainRecord;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use DigitalOceanDomainBundle\Request\CreateDomainRecordRequest;
 use DigitalOceanDomainBundle\Request\CreateDomainRequest;
 use DigitalOceanDomainBundle\Request\DeleteDomainRecordRequest;

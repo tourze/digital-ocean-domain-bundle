@@ -4,9 +4,9 @@ namespace DigitalOceanDomainBundle\Tests\Service;
 
 use DigitalOceanAccountBundle\Client\DigitalOceanClient;
 use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
-use DigitalOceanAccountBundle\Repository\DomainRepository;
 use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use DigitalOceanDomainBundle\Service\DomainService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;

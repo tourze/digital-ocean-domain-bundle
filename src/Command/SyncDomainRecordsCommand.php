@@ -2,7 +2,7 @@
 
 namespace DigitalOceanDomainBundle\Command;
 
-use DigitalOceanAccountBundle\Repository\DomainRepository;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use DigitalOceanDomainBundle\Service\DomainService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;

@@ -51,7 +51,7 @@ class SyncDomainsCommand extends Command
             }
 
             return Command::SUCCESS;
-        } catch  (\Throwable $e) {
+        } catch (\Throwable $e) {
             $io->error('同步域名时发生错误: ' . $e->getMessage());
             return Command::FAILURE;
         }

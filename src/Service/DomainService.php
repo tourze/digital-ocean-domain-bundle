@@ -103,7 +103,7 @@ class DomainService
         try {
             $this->client->request($request);
             return true;
-        } catch  (\Throwable $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('删除域名失败', [
                 'domainName' => $domainName,
                 'error' => $e->getMessage(),
@@ -252,7 +252,7 @@ class DomainService
         try {
             $this->client->request($request);
             return true;
-        } catch  (\Throwable $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('删除域名记录失败', [
                 'domainName' => $domainName,
                 'recordId' => $recordId,

@@ -103,7 +103,7 @@ class UpdateDomainRecordCommand extends Command
                     $io->error('更新域名记录失败');
                     return Command::FAILURE;
                 }
-            } catch (\Throwable $e) {
+            } catch  (\Throwable $e) {
                 $io->error('更新域名记录时发生错误: ' . $e->getMessage());
                 return Command::FAILURE;
             }
@@ -202,7 +202,7 @@ class UpdateDomainRecordCommand extends Command
                     $io->error('更新域名记录失败');
                     return Command::FAILURE;
                 }
-            } catch (\Throwable $e) {
+            } catch  (\Throwable $e) {
                 $io->error('更新域名记录时发生错误: ' . $e->getMessage());
                 return Command::FAILURE;
             }

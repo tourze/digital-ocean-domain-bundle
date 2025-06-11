@@ -46,7 +46,7 @@ class SyncDomainRecordsCommand extends Command
                 $records = $this->domainService->syncDomainRecords($domainName);
                 $this->displayRecords($io, $records);
                 return Command::SUCCESS;
-            } catch (\Throwable $e) {
+            } catch  (\Throwable $e) {
                 $io->error('同步域名记录时发生错误: ' . $e->getMessage());
                 return Command::FAILURE;
             }
@@ -78,7 +78,7 @@ class SyncDomainRecordsCommand extends Command
                     } else {
                         $io->info('没有找到任何记录');
                     }
-                } catch (\Throwable $e) {
+                } catch  (\Throwable $e) {
                     $errors[] = [
                         'domain' => $domainName,
                         'error' => $e->getMessage(),

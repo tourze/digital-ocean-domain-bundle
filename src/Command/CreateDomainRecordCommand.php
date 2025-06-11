@@ -95,7 +95,7 @@ class CreateDomainRecordCommand extends Command
                 $io->error('添加域名记录失败');
                 return Command::FAILURE;
             }
-        } catch (\Throwable $e) {
+        } catch  (\Throwable $e) {
             $io->error('添加域名记录时发生错误: ' . $e->getMessage());
             return Command::FAILURE;
         }

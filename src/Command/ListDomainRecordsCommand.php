@@ -152,7 +152,7 @@ class ListDomainRecordsCommand extends Command
             }
 
             return Command::SUCCESS;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $io->error('获取域名记录时发生错误: ' . $e->getMessage());
             return Command::FAILURE;
         }

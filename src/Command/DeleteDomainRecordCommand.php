@@ -81,7 +81,7 @@ class DeleteDomainRecordCommand extends Command
                 } else {
                     $io->warning(sprintf('找不到记录信息, 域名: %s, 记录ID: %d', $domain, $recordId));
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $io->warning('无法获取远程记录信息: ' . $e->getMessage());
             }
         }
@@ -111,7 +111,7 @@ class DeleteDomainRecordCommand extends Command
                 $io->error('删除域名记录失败');
                 return Command::FAILURE;
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $io->error('删除域名记录时发生错误: ' . $e->getMessage());
             return Command::FAILURE;
         }

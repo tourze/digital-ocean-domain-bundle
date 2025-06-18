@@ -9,11 +9,9 @@ use Doctrine\ORM\Mapping as ORM;
 use Tourze\Arrayable\AdminArrayInterface;
 use Tourze\Arrayable\PlainArrayInterface;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
-use Tourze\DoctrineTimestampBundle\Attribute\CreateTimeColumn;
-use Tourze\DoctrineTimestampBundle\Attribute\UpdateTimeColumn;
+use Tourze\DoctrineTimestampBundle\Traits\TimestampableAware;
 use Tourze\EasyAdmin\Attribute\Column\ExportColumn;
 use Tourze\EasyAdmin\Attribute\Column\ListColumn;
-use Tourze\EasyAdmin\Attribute\Filter\Filterable;
 
 /**
  * DigitalOcean域名记录实体
@@ -22,6 +20,7 @@ use Tourze\EasyAdmin\Attribute\Filter\Filterable;
 #[ORM\Table(name: 'ims_digital_ocean_domain_record', options: ['comment' => 'DigitalOcean域名记录'])]
 class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringable
 {
+    use TimestampableAware;
     #[ListColumn(order: -1)]
     #[ExportColumn]
     #[ORM\Id]
@@ -93,21 +92,6 @@ class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringa
     #[ORM\ManyToOne(targetEntity: DigitalOceanConfig::class)]
     #[ORM\JoinColumn(name: 'config_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?DigitalOceanConfig $config = null;
-
-    #[Filterable]
-    #[IndexColumn]
-    #[ListColumn(order: 98, sorter: true)]
-    #[ExportColumn]
-    #[CreateTimeColumn]
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true, options: ['comment' => '创建时间'])]
-    private ?\DateTimeInterface $createTime = null;
-
-    #[UpdateTimeColumn]
-    #[ListColumn(order: 99, sorter: true)]
-    #[Filterable]
-    #[ExportColumn]
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true, options: ['comment' => '更新时间'])]
-    private ?\DateTimeInterface $updateTime = null;
 
     public function getId(): ?int
     {
@@ -244,29 +228,7 @@ class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringa
     {
         $this->config = $config;
         return $this;
-    }
-
-    public function setCreateTime(?\DateTimeInterface $createdAt): void
-    {
-        $this->createTime = $createdAt;
-    }
-
-    public function getCreateTime(): ?\DateTimeInterface
-    {
-        return $this->createTime;
-    }
-
-    public function setUpdateTime(?\DateTimeInterface $updateTime): void
-    {
-        $this->updateTime = $updateTime;
-    }
-
-    public function getUpdateTime(): ?\DateTimeInterface
-    {
-        return $this->updateTime;
-    }
-
-    public function toPlainArray(): array
+    }public function toPlainArray(): array
     {
         return [
             'id' => $this->getId(),

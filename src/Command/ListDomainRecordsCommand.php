@@ -16,12 +16,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * 列出DigitalOcean域名记录命令
  */
 #[AsCommand(
-    name: 'digital-ocean:domain:record:list',
+    name: self::NAME,
     description: '列出DigitalOcean域名记录',
 )]
 class ListDomainRecordsCommand extends Command
 {
-    protected const NAME = 'digital-ocean:domain:record:list';
+    public const NAME = 'digital-ocean:domain:record:list';
 
     public function __construct(
         private readonly DomainService $domainService,

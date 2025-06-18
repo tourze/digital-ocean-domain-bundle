@@ -15,12 +15,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * 添加DigitalOcean域名记录命令
  */
 #[AsCommand(
-    name: 'digital-ocean:domain:record:create',
+    name: self::NAME,
     description: '添加DigitalOcean域名记录',
 )]
 class CreateDomainRecordCommand extends Command
 {
-    protected const NAME = 'digital-ocean:domain:record:create';
+    public const NAME = 'digital-ocean:domain:record:create';
 
     public function __construct(
         private readonly DomainService $domainService,

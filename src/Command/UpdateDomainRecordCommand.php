@@ -16,12 +16,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * 更新DigitalOcean域名记录命令
  */
 #[AsCommand(
-    name: 'digital-ocean:domain:record:update',
+    name: self::NAME,
     description: '更新DigitalOcean域名记录',
 )]
 class UpdateDomainRecordCommand extends Command
 {
-    protected const NAME = 'digital-ocean:domain:record:update';
+    public const NAME = 'digital-ocean:domain:record:update';
 
     public function __construct(
         private readonly DomainService $domainService,

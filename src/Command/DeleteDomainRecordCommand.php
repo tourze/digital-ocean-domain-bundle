@@ -16,12 +16,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * 删除DigitalOcean域名记录命令
  */
 #[AsCommand(
-    name: 'digital-ocean:domain:record:delete',
+    name: self::NAME,
     description: '删除DigitalOcean域名记录',
 )]
 class DeleteDomainRecordCommand extends Command
 {
-    protected const NAME = 'digital-ocean:domain:record:delete';
+    public const NAME = 'digital-ocean:domain:record:delete';
 
     public function __construct(
         private readonly DomainService $domainService,

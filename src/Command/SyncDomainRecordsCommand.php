@@ -15,12 +15,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * 同步DigitalOcean域名记录命令
  */
 #[AsCommand(
-    name: 'digital-ocean:domain:sync-records',
+    name: self::NAME,
     description: '同步DigitalOcean域名记录数据',
 )]
 class SyncDomainRecordsCommand extends Command
 {
-    protected const NAME = 'digital-ocean:domain:sync-records';
+    public const NAME = 'digital-ocean:domain:sync-records';
 
     public function __construct(
         private readonly DomainService $domainService,

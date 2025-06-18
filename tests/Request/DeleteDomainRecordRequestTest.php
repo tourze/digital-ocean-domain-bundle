@@ -27,8 +27,6 @@ class DeleteDomainRecordRequestTest extends TestCase
     public function testGetRequestOptions(): void
     {
         $options = $this->request->getRequestOptions();
-
-        $this->assertIsArray($options);
         // DELETE请求不应有JSON数据
         $this->assertArrayNotHasKey('json', $options);
     }

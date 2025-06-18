@@ -27,8 +27,6 @@ class ListDomainRecordsRequestTest extends TestCase
     public function testGetRequestOptionsDefault(): void
     {
         $options = $this->request->getRequestOptions();
-
-        $this->assertIsArray($options);
         $this->assertArrayHasKey('query', $options);
         $this->assertArrayHasKey('page', $options['query']);
         $this->assertArrayHasKey('per_page', $options['query']);
@@ -41,8 +39,6 @@ class ListDomainRecordsRequestTest extends TestCase
     {
         $this->request->setPage(3)->setPerPage(50);
         $options = $this->request->getRequestOptions();
-
-        $this->assertIsArray($options);
         $this->assertArrayHasKey('query', $options);
         $this->assertArrayHasKey('page', $options['query']);
         $this->assertArrayHasKey('per_page', $options['query']);

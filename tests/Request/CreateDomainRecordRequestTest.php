@@ -32,8 +32,6 @@ class CreateDomainRecordRequestTest extends TestCase
     public function testGetRequestOptionsWithRequiredParamsOnly(): void
     {
         $options = $this->request->getRequestOptions();
-
-        $this->assertIsArray($options);
         $this->assertArrayHasKey('json', $options);
         $this->assertArrayHasKey('type', $options['json']);
         $this->assertArrayHasKey('name', $options['json']);

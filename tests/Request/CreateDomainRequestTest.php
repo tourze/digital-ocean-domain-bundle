@@ -30,8 +30,6 @@ class CreateDomainRequestTest extends TestCase
     public function testGetRequestOptionsWithRequiredParams(): void
     {
         $options = $this->request->getRequestOptions();
-
-        $this->assertIsArray($options);
         $this->assertArrayHasKey('json', $options);
         $this->assertArrayHasKey('name', $options['json']);
         $this->assertArrayHasKey('ip_address', $options['json']);
@@ -44,8 +42,6 @@ class CreateDomainRequestTest extends TestCase
     {
         $request = new CreateDomainRequest('example.com');
         $options = $request->getRequestOptions();
-
-        $this->assertIsArray($options);
         $this->assertArrayHasKey('json', $options);
         $this->assertArrayHasKey('name', $options['json']);
         $this->assertArrayNotHasKey('ip_address', $options['json']);

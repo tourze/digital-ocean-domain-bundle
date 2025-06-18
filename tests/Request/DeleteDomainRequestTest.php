@@ -27,8 +27,6 @@ class DeleteDomainRequestTest extends TestCase
     public function testGetRequestOptions(): void
     {
         $options = $this->request->getRequestOptions();
-
-        $this->assertIsArray($options);
         // 删除请求不应有JSON数据
         $this->assertArrayNotHasKey('json', $options);
     }

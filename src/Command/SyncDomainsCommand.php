@@ -18,6 +18,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class SyncDomainsCommand extends Command
 {
+    protected const NAME = 'digital-ocean:domain:sync';
+
     public function __construct(
         private readonly DomainService $domainService,
     ) {

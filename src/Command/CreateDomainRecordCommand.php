@@ -20,6 +20,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class CreateDomainRecordCommand extends Command
 {
+    protected const NAME = 'digital-ocean:domain:record:create';
+
     public function __construct(
         private readonly DomainService $domainService,
     ) {

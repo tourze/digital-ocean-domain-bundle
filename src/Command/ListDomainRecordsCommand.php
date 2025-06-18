@@ -21,6 +21,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class ListDomainRecordsCommand extends Command
 {
+    protected const NAME = 'digital-ocean:domain:record:list';
+
     public function __construct(
         private readonly DomainService $domainService,
         private readonly DomainRecordRepository $domainRecordRepository,
@@ -53,7 +55,7 @@ class ListDomainRecordsCommand extends Command
         $io->title(sprintf('域名 "%s" 的DNS记录列表', $domain));
 
         try {
-            if ($useRemote) {
+            if ($useRemote === true) {
                 // 使用远程API获取记录
                 $response = $this->domainService->listDomainRecords($domain, $page, $limit);
                 $records = $response['domain_records'] ?? [];
@@ -64,13 +66,13 @@ class ListDomainRecordsCommand extends Command
                 }
 
                 // 应用过滤
-                if ($type || $name) {
+                if ($type !== null || $name !== null) {
                     $filteredRecords = [];
                     foreach ($records as $record) {
-                        if ($type && (!isset($record['type']) || strtoupper($record['type']) !== strtoupper($type))) {
+                        if ($type !== null && (!isset($record['type']) || strtoupper($record['type']) !== strtoupper($type))) {
                             continue;
                         }
-                        if ($name && (!isset($record['name']) || strpos($record['name'], $name) === false)) {
+                        if ($name !== null && (!isset($record['name']) || strpos($record['name'], $name) === false)) {
                             continue;
                         }
                         $filteredRecords[] = $record;
@@ -111,11 +113,11 @@ class ListDomainRecordsCommand extends Command
                 // 从本地数据库获取记录
                 $criteria = ['domainName' => $domain];
                 
-                if ($type) {
+                if ($type !== null) {
                     $criteria['type'] = $type;
                 }
                 
-                if ($name) {
+                if ($name !== null) {
                     // 名称模糊查询需要使用自定义查询方法
                     $records = $this->domainRecordRepository->findByDomainAndName($domain, $name, $type);
                 } else {

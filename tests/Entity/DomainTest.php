@@ -25,8 +25,8 @@ class DomainTest extends TestCase
         $name = 'example.com';
         $ttl = '1800';
         $zoneFile = 'zone file content';
-        $createTime = new \DateTime('2023-01-01');
-        $updateTime = new \DateTime('2023-01-02');
+        $createTime = new \DateTimeImmutable('2023-01-01');
+        $updateTime = new \DateTimeImmutable('2023-01-02');
 
         $domain->setName($name)
             ->setTtl($ttl)
@@ -56,7 +56,6 @@ class DomainTest extends TestCase
 
         $plainArray = $domain->toPlainArray();
 
-        $this->assertIsArray($plainArray);
         $this->assertEquals(0, $plainArray['id']);
         $this->assertEquals($name, $plainArray['name']);
         $this->assertEquals($ttl, $plainArray['ttl']);
@@ -77,10 +76,18 @@ class DomainTest extends TestCase
 
         $adminArray = $domain->toAdminArray();
 
-        $this->assertIsArray($adminArray);
         $this->assertEquals(0, $adminArray['id']);
         $this->assertEquals($name, $adminArray['name']);
         $this->assertEquals($ttl, $adminArray['ttl']);
         $this->assertEquals($zoneFile, $adminArray['zoneFile']);
+    }
+
+    public function testToString(): void
+    {
+        $domain = new Domain();
+        $name = 'example.com';
+        $domain->setName($name);
+
+        $this->assertEquals($name, (string)$domain);
     }
 }

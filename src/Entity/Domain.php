@@ -14,7 +14,7 @@ use Tourze\EasyAdmin\Attribute\Column\ListColumn;
 
 #[ORM\Entity(repositoryClass: DomainRepository::class)]
 #[ORM\Table(name: 'ims_digital_ocean_domain', options: ['comment' => 'DigitalOcean域名'])]
-class Domain implements PlainArrayInterface, AdminArrayInterface
+class Domain implements PlainArrayInterface, AdminArrayInterface, \Stringable
 {
     #[ListColumn(order: -1)]
     #[ExportColumn]
@@ -98,5 +98,10 @@ class Domain implements PlainArrayInterface, AdminArrayInterface
     public function retrieveAdminArray(): array
     {
         return $this->toAdminArray();
+    }
+
+    public function __toString(): string
+    {
+        return $this->getName();
     }
 }

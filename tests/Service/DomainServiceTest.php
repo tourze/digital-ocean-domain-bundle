@@ -16,12 +16,12 @@ use Psr\Log\LoggerInterface;
 class DomainServiceTest extends TestCase
 {
     private DomainService $service;
-    private MockObject $client;
-    private MockObject $configService;
-    private MockObject $entityManager;
-    private MockObject $domainRepository;
-    private MockObject $domainRecordRepository;
-    private MockObject $logger;
+    private MockObject&DigitalOceanClient $client;
+    private MockObject&DigitalOceanConfigService $configService;
+    private MockObject&EntityManagerInterface $entityManager;
+    private MockObject&DomainRepository $domainRepository;
+    private MockObject&DomainRecordRepository $domainRecordRepository;
+    private MockObject&LoggerInterface $logger;
     private DigitalOceanConfig $config;
 
     protected function setUp(): void

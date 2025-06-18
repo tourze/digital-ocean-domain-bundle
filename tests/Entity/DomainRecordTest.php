@@ -50,7 +50,6 @@ class DomainRecordTest extends TestCase
     {
         $array = $this->record->toPlainArray();
 
-        $this->assertIsArray($array);
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
         $this->assertArrayHasKey('type', $array);
@@ -68,7 +67,6 @@ class DomainRecordTest extends TestCase
     {
         $array = $this->record->toAdminArray();
 
-        $this->assertIsArray($array);
         // 确保管理数组包含必要的字段
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
@@ -80,7 +78,6 @@ class DomainRecordTest extends TestCase
     {
         $array = $this->record->retrievePlainArray();
 
-        $this->assertIsArray($array);
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
     }
@@ -89,7 +86,6 @@ class DomainRecordTest extends TestCase
     {
         $array = $this->record->retrieveAdminArray();
 
-        $this->assertIsArray($array);
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
     }

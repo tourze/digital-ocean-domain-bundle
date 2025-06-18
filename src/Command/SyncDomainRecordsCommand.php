@@ -20,6 +20,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class SyncDomainRecordsCommand extends Command
 {
+    protected const NAME = 'digital-ocean:domain:sync-records';
+
     public function __construct(
         private readonly DomainService $domainService,
         private readonly DomainRepository $domainRepository,
@@ -39,7 +41,7 @@ class SyncDomainRecordsCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $domainName = $input->getArgument('domain');
 
-        if ($domainName) {
+        if ($domainName !== null) {
             $io->title(sprintf('同步域名 "%s" 的记录', $domainName));
             
             try {

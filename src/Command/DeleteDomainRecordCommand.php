@@ -21,6 +21,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class DeleteDomainRecordCommand extends Command
 {
+    protected const NAME = 'digital-ocean:domain:record:delete';
+
     public function __construct(
         private readonly DomainService $domainService,
         private readonly DomainRecordRepository $domainRecordRepository,
@@ -49,7 +51,7 @@ class DeleteDomainRecordCommand extends Command
             'recordId' => $recordId,
         ]);
 
-        if ($localRecord) {
+        if ($localRecord !== null) {
             $io->section('本地记录信息');
             $io->table(
                 ['属性', '值'],
@@ -99,7 +101,7 @@ class DeleteDomainRecordCommand extends Command
                 $io->success(sprintf('成功删除域名记录: %s (ID: %d)', $domain, $recordId));
                 
                 // 删除本地记录
-                if ($localRecord) {
+                if ($localRecord !== null) {
                     $io->section('删除本地数据库记录');
                     $this->entityManager->remove($localRecord);
                     $this->entityManager->flush();

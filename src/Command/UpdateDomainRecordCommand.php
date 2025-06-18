@@ -21,6 +21,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class UpdateDomainRecordCommand extends Command
 {
+    protected const NAME = 'digital-ocean:domain:record:update';
+
     public function __construct(
         private readonly DomainService $domainService,
         private readonly DomainRecordRepository $domainRecordRepository,
@@ -53,14 +55,14 @@ class UpdateDomainRecordCommand extends Command
         $recordId = (int)$input->getArgument('record_id');
         $useLocalData = $input->getOption('local');
         
-        if ($useLocalData) {
+        if ($useLocalData === true) {
             // 从本地数据库获取记录信息
             $localRecord = $this->domainRecordRepository->findOneBy([
                 'domainName' => $domain,
                 'recordId' => $recordId,
             ]);
             
-            if (!$localRecord) {
+            if ($localRecord === null) {
                 $io->error(sprintf('找不到本地记录, 域名: %s, 记录ID: %d', $domain, $recordId));
                 return Command::FAILURE;
             }

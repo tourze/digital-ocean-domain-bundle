@@ -10,8 +10,6 @@ use Tourze\Arrayable\AdminArrayInterface;
 use Tourze\Arrayable\PlainArrayInterface;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
 use Tourze\DoctrineTimestampBundle\Traits\TimestampableAware;
-use Tourze\EasyAdmin\Attribute\Column\ExportColumn;
-use Tourze\EasyAdmin\Attribute\Column\ListColumn;
 
 /**
  * DigitalOcean域名记录实体
@@ -21,74 +19,48 @@ use Tourze\EasyAdmin\Attribute\Column\ListColumn;
 class DomainRecord implements PlainArrayInterface, AdminArrayInterface, \Stringable
 {
     use TimestampableAware;
-    #[ListColumn(order: -1)]
-    #[ExportColumn]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
     private ?int $id = 0;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[IndexColumn]
     #[ORM\Column(type: Types::STRING, length: 255, options: ['comment' => '域名'])]
     private string $domainName;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[IndexColumn]
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => '记录ID'])]
     private int $recordId;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[IndexColumn]
     #[ORM\Column(type: Types::STRING, length: 100, options: ['comment' => '记录类型'])]
     private string $type;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[IndexColumn]
     #[ORM\Column(type: Types::STRING, length: 255, options: ['comment' => '记录名称'])]
     private string $name;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::TEXT, options: ['comment' => '记录值'])]
     private string $data;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::INTEGER, nullable: true, options: ['comment' => '优先级'])]
     private ?int $priority = null;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::INTEGER, nullable: true, options: ['comment' => '端口'])]
     private ?int $port = null;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::INTEGER, nullable: true, options: ['comment' => 'TTL'])]
     private ?int $ttl = null;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::INTEGER, nullable: true, options: ['comment' => '权重'])]
     private ?int $weight = null;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::STRING, length: 10, nullable: true, options: ['comment' => '标志位'])]
     private ?string $flags = null;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\Column(type: Types::STRING, length: 10, nullable: true, options: ['comment' => '标签'])]
     private ?string $tag = null;
 
-    #[ListColumn]
-    #[ExportColumn]
     #[ORM\ManyToOne(targetEntity: DigitalOceanConfig::class)]
     #[ORM\JoinColumn(name: 'config_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?DigitalOceanConfig $config = null;

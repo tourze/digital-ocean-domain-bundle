@@ -35,7 +35,7 @@ class ListDomainRecordsCommand extends Command
         $this
             ->addArgument('domain', InputArgument::REQUIRED, '域名')
             ->addOption('type', 't', InputOption::VALUE_OPTIONAL, '记录类型过滤 (如A, AAAA, CNAME等)')
-            ->addOption('name', 'n', InputOption::VALUE_OPTIONAL, '记录名称过滤')
+            ->addOption('name', null, InputOption::VALUE_OPTIONAL, '记录名称过滤')
             ->addOption('remote', 'r', InputOption::VALUE_NONE, '使用远程API查询而不是本地数据库')
             ->addOption('page', 'p', InputOption::VALUE_OPTIONAL, '页码', 1)
             ->addOption('limit', 'l', InputOption::VALUE_OPTIONAL, '每页记录数', 50)

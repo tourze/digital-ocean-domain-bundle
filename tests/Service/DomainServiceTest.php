@@ -8,6 +8,7 @@ use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
 use DigitalOceanDomainBundle\Repository\DomainRepository;
 use DigitalOceanDomainBundle\Service\DomainService;
+use DigitalOceanDomainBundle\Tests\Exception\TestException;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -155,7 +156,7 @@ class DomainServiceTest extends TestCase
     {
         $this->client->expects($this->once())
             ->method('request')
-            ->willThrowException(new \Exception('API Error'));
+            ->willThrowException(new TestException('API Error'));
 
         $this->logger->expects($this->once())
             ->method('error');
@@ -296,7 +297,7 @@ class DomainServiceTest extends TestCase
     {
         $this->client->expects($this->once())
             ->method('request')
-            ->willThrowException(new \Exception('API Error'));
+            ->willThrowException(new TestException('API Error'));
 
         $this->logger->expects($this->once())
             ->method('error');

@@ -36,7 +36,7 @@ class UpdateDomainRecordCommand extends Command
             ->addArgument('domain', InputArgument::REQUIRED, '域名')
             ->addArgument('record_id', InputArgument::REQUIRED, '记录ID')
             ->addOption('type', 't', InputOption::VALUE_OPTIONAL, '记录类型 (A, AAAA, CNAME, MX, TXT, NS, SRV, CAA等)')
-            ->addOption('name', 'n', InputOption::VALUE_OPTIONAL, '记录名称 (@表示根域名)')
+            ->addOption('name', null, InputOption::VALUE_OPTIONAL, '记录名称 (@表示根域名)')
             ->addOption('data', 'd', InputOption::VALUE_OPTIONAL, '记录值 (如IP地址)')
             ->addOption('priority', null, InputOption::VALUE_OPTIONAL, 'MX或SRV记录的优先级')
             ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'SRV记录的端口')

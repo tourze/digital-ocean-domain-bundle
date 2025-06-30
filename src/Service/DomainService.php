@@ -6,6 +6,7 @@ use DigitalOceanAccountBundle\Client\DigitalOceanClient;
 use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Entity\Domain;
 use DigitalOceanDomainBundle\Entity\DomainRecord;
+use DigitalOceanDomainBundle\Exception\ConfigurationException;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
 use DigitalOceanDomainBundle\Repository\DomainRepository;
 use DigitalOceanDomainBundle\Request\CreateDomainRecordRequest;
@@ -40,7 +41,7 @@ class DomainService
     {
         $config = $this->configService->getConfig();
         if ($config === null) {
-            throw new \RuntimeException('未配置 DigitalOcean API Key');
+            throw new ConfigurationException('未配置 DigitalOcean API Key');
         }
 
         $request->setApiKey($config->getApiKey());

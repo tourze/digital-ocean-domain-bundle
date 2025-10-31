@@ -1,21 +1,37 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DigitalOceanDomainBundle\Tests\DependencyInjection;
 
 use DigitalOceanDomainBundle\DependencyInjection\DigitalOceanDomainExtension;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Tourze\PHPUnitSymfonyUnitTest\AbstractDependencyInjectionExtensionTestCase;
 
-class DigitalOceanDomainExtensionTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(DigitalOceanDomainExtension::class)]
+final class DigitalOceanDomainExtensionTest extends AbstractDependencyInjectionExtensionTestCase
 {
-    public function testLoad(): void
+    private DigitalOceanDomainExtension $extension;
+
+    private ContainerBuilder $container;
+
+    public function testLoadRegistersCoreServices(): void
     {
-        $container = new ContainerBuilder();
-        $extension = new DigitalOceanDomainExtension();
-        
-        $extension->load([], $container);
-        
+        $this->extension->load([], $this->container);
+
         // 验证扩展加载成功 - 检查服务是否被加载
-        $this->assertTrue($container->has('DigitalOceanDomainBundle\Service\DomainService'));
+        $this->assertTrue($this->container->has('DigitalOceanDomainBundle\Service\DomainService'));
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->extension = new DigitalOceanDomainExtension();
+        $this->container = new ContainerBuilder();
+        $this->container->setParameter('kernel.environment', 'test');
     }
 }

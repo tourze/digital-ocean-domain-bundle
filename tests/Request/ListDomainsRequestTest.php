@@ -3,14 +3,21 @@
 namespace DigitalOceanDomainBundle\Tests\Request;
 
 use DigitalOceanDomainBundle\Request\ListDomainsRequest;
-use PHPUnit\Framework\TestCase;
+use HttpClientBundle\Tests\Request\RequestTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 
-class ListDomainsRequestTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(ListDomainsRequest::class)]
+final class ListDomainsRequestTest extends RequestTestCase
 {
     private ListDomainsRequest $request;
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         $this->request = new ListDomainsRequest();
     }
 
@@ -27,24 +34,31 @@ class ListDomainsRequestTest extends TestCase
     public function testGetRequestOptionsDefault(): void
     {
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
         $this->assertArrayHasKey('query', $options);
-        $this->assertArrayHasKey('page', $options['query']);
-        $this->assertArrayHasKey('per_page', $options['query']);
+        $this->assertIsArray($options['query']);
+        $queryOptions = $options['query'];
+        $this->assertArrayHasKey('page', $queryOptions);
+        $this->assertArrayHasKey('per_page', $queryOptions);
 
-        $this->assertEquals(1, $options['query']['page']);
-        $this->assertEquals(20, $options['query']['per_page']);
+        $this->assertEquals(1, $queryOptions['page']);
+        $this->assertEquals(20, $queryOptions['per_page']);
     }
 
     public function testGetRequestOptionsWithPagination(): void
     {
-        $this->request->setPage(3)->setPerPage(50);
+        $this->request->setPage(3);
+        $this->request->setPerPage(50);
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
         $this->assertArrayHasKey('query', $options);
-        $this->assertArrayHasKey('page', $options['query']);
-        $this->assertArrayHasKey('per_page', $options['query']);
+        $this->assertIsArray($options['query']);
+        $queryOptions = $options['query'];
+        $this->assertArrayHasKey('page', $queryOptions);
+        $this->assertArrayHasKey('per_page', $queryOptions);
 
-        $this->assertEquals(3, $options['query']['page']);
-        $this->assertEquals(50, $options['query']['per_page']);
+        $this->assertEquals(3, $queryOptions['page']);
+        $this->assertEquals(50, $queryOptions['per_page']);
     }
 
     public function testSetApiKey(): void

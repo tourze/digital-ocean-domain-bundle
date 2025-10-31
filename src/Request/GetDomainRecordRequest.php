@@ -6,17 +6,15 @@ use DigitalOceanAccountBundle\Request\DigitalOceanRequest;
 
 /**
  * 获取单个域名记录请求
+ *
  * @see https://docs.digitalocean.com/reference/api/digitalocean/#operation/domains_get_record
  */
 class GetDomainRecordRequest extends DigitalOceanRequest
 {
-    private string $domainName;
-    private int $recordId;
-
-    public function __construct(string $domainName, int $recordId)
-    {
-        $this->domainName = $domainName;
-        $this->recordId = $recordId;
+    public function __construct(
+        private readonly string $domainName,
+        private readonly int $recordId,
+    ) {
     }
 
     public function getRequestPath(): string

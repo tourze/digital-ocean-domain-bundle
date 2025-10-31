@@ -3,12 +3,16 @@ services:
   _defaults:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
-    public: false
+    public: true
 
   # 如果确认要使用自动扫描、自动注册，建议尽可能将要扫描的目录路径收缩，不要设置那么大的范围
   DigitalOceanDomainBundle\Command\:
     resource: '../../Command/'
+  DigitalOceanDomainBundle\Controller\:
+    resource: '../../Controller/'
   DigitalOceanDomainBundle\EventSubscriber\:
     resource: '../../EventSubscriber/'
   DigitalOceanDomainBundle\Service\:
     resource: '../../Service/'
+  DigitalOceanDomainBundle\Repository\:
+    resource: '../../Repository/'

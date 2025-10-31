@@ -3,46 +3,31 @@
 namespace DigitalOceanDomainBundle\Tests\Entity;
 
 use DigitalOceanDomainBundle\Entity\Domain;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use Tourze\PHPUnitDoctrineEntity\AbstractEntityTestCase;
 
-class DomainTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(Domain::class)]
+final class DomainTest extends AbstractEntityTestCase
 {
-    public function testConstruction_withDefaultValues(): void
+    protected function createEntity(): object
     {
-        $domain = new Domain();
-
-        $this->assertEquals(0, $domain->getId());
-        $this->assertNull($domain->getCreateTime());
-        $this->assertNull($domain->getUpdateTime());
-        $this->assertNull($domain->getTtl());
-        $this->assertNull($domain->getZoneFile());
+        return new Domain();
     }
 
-    public function testGettersAndSetters_withValidValues(): void
+    /**
+     * @return iterable<string, array{string, mixed}>
+     */
+    public static function propertiesProvider(): iterable
     {
-        $domain = new Domain();
-
-        $name = 'example.com';
-        $ttl = '1800';
-        $zoneFile = 'zone file content';
-        $createTime = new \DateTimeImmutable('2023-01-01');
-        $updateTime = new \DateTimeImmutable('2023-01-02');
-
-        $domain->setName($name)
-            ->setTtl($ttl)
-            ->setZoneFile($zoneFile);
-
-        $domain->setCreateTime($createTime);
-        $domain->setUpdateTime($updateTime);
-
-        $this->assertEquals($name, $domain->getName());
-        $this->assertEquals($ttl, $domain->getTtl());
-        $this->assertEquals($zoneFile, $domain->getZoneFile());
-        $this->assertEquals($createTime, $domain->getCreateTime());
-        $this->assertEquals($updateTime, $domain->getUpdateTime());
+        yield 'name_string' => ['name', 'example.com'];
+        yield 'ttl_string' => ['ttl', '1800'];
+        yield 'zoneFile_string' => ['zoneFile', 'zone file content'];
     }
 
-    public function testToPlainArray_returnsCorrectFormat(): void
+    public function testToPlainArrayReturnsCorrectFormat(): void
     {
         $domain = new Domain();
 
@@ -50,9 +35,9 @@ class DomainTest extends TestCase
         $ttl = '1800';
         $zoneFile = 'zone file content';
 
-        $domain->setName($name)
-            ->setTtl($ttl)
-            ->setZoneFile($zoneFile);
+        $domain->setName($name);
+        $domain->setTtl($ttl);
+        $domain->setZoneFile($zoneFile);
 
         $plainArray = $domain->toPlainArray();
 
@@ -62,7 +47,7 @@ class DomainTest extends TestCase
         $this->assertEquals($zoneFile, $plainArray['zoneFile']);
     }
 
-    public function testToAdminArray_returnsCorrectFormat(): void
+    public function testToAdminArrayReturnsCorrectFormat(): void
     {
         $domain = new Domain();
 
@@ -70,9 +55,9 @@ class DomainTest extends TestCase
         $ttl = '1800';
         $zoneFile = 'zone file content';
 
-        $domain->setName($name)
-            ->setTtl($ttl)
-            ->setZoneFile($zoneFile);
+        $domain->setName($name);
+        $domain->setTtl($ttl);
+        $domain->setZoneFile($zoneFile);
 
         $adminArray = $domain->toAdminArray();
 
@@ -88,6 +73,6 @@ class DomainTest extends TestCase
         $name = 'example.com';
         $domain->setName($name);
 
-        $this->assertEquals($name, (string)$domain);
+        $this->assertEquals($name, (string) $domain);
     }
 }

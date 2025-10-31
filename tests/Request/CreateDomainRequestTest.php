@@ -3,14 +3,21 @@
 namespace DigitalOceanDomainBundle\Tests\Request;
 
 use DigitalOceanDomainBundle\Request\CreateDomainRequest;
-use PHPUnit\Framework\TestCase;
+use HttpClientBundle\Tests\Request\RequestTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 
-class CreateDomainRequestTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(CreateDomainRequest::class)]
+final class CreateDomainRequestTest extends RequestTestCase
 {
     private CreateDomainRequest $request;
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         $this->request = new CreateDomainRequest(
             'example.com',
             '192.168.1.1'
@@ -30,23 +37,29 @@ class CreateDomainRequestTest extends TestCase
     public function testGetRequestOptionsWithRequiredParams(): void
     {
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
         $this->assertArrayHasKey('json', $options);
-        $this->assertArrayHasKey('name', $options['json']);
-        $this->assertArrayHasKey('ip_address', $options['json']);
+        $this->assertIsArray($options['json']);
+        $jsonOptions = $options['json'];
+        $this->assertArrayHasKey('name', $jsonOptions);
+        $this->assertArrayHasKey('ip_address', $jsonOptions);
 
-        $this->assertEquals('example.com', $options['json']['name']);
-        $this->assertEquals('192.168.1.1', $options['json']['ip_address']);
+        $this->assertEquals('example.com', $jsonOptions['name']);
+        $this->assertEquals('192.168.1.1', $jsonOptions['ip_address']);
     }
 
     public function testGetRequestOptionsWithNullIpAddress(): void
     {
         $request = new CreateDomainRequest('example.com');
         $options = $request->getRequestOptions();
+        $this->assertIsArray($options);
         $this->assertArrayHasKey('json', $options);
-        $this->assertArrayHasKey('name', $options['json']);
-        $this->assertArrayNotHasKey('ip_address', $options['json']);
+        $this->assertIsArray($options['json']);
+        $jsonOptions = $options['json'];
+        $this->assertArrayHasKey('name', $jsonOptions);
+        $this->assertArrayNotHasKey('ip_address', $jsonOptions);
 
-        $this->assertEquals('example.com', $options['json']['name']);
+        $this->assertEquals('example.com', $jsonOptions['name']);
     }
 
     public function testSetApiKey(): void

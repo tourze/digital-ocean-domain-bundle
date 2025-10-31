@@ -2,46 +2,66 @@
 
 namespace DigitalOceanDomainBundle\Tests\Command;
 
+use DigitalOceanAccountBundle\DigitalOceanAccountBundle;
 use DigitalOceanDomainBundle\Command\SyncDomainsCommand;
+use DigitalOceanDomainBundle\DigitalOceanDomainBundle;
 use DigitalOceanDomainBundle\Entity\Domain;
-use DigitalOceanDomainBundle\Service\DomainService;
+use DigitalOceanDomainBundle\Entity\DomainRecord;
+use DigitalOceanDomainBundle\Service\DomainServiceInterface;
 use DigitalOceanDomainBundle\Tests\Exception\TestException;
+use DigitalOceanDomainBundle\Tests\Helper\TestDomainService;
+use DigitalOceanDomainBundle\Tests\Helper\TestEntityGenerator;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
 
-class SyncDomainsCommandTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(SyncDomainsCommand::class)]
+#[RunTestsInSeparateProcesses]
+final class SyncDomainsCommandTest extends AbstractCommandTestCase
 {
-    private DomainService&MockObject $domainService;
+    private TestDomainService $domainService;
+
     private SyncDomainsCommand $command;
+
     private CommandTester $commandTester;
 
-    protected function setUp(): void
+    protected function getCommandTester(): CommandTester
     {
-        $this->domainService = $this->createMock(DomainService::class);
-        $this->command = new SyncDomainsCommand($this->domainService);
-        
+        return $this->commandTester;
+    }
+
+    protected function onSetUp(): void
+    {
+        $this->domainService = new TestDomainService();
+
+        // 从容器中获取Command服务，符合集成测试最佳实践
+        $container = self::getContainer();
+        $container->set(DomainServiceInterface::class, $this->domainService);
+        $command = $container->get(SyncDomainsCommand::class);
+        if (!$command instanceof SyncDomainsCommand) {
+            throw new \RuntimeException('Failed to get SyncDomainsCommand instance');
+        }
+        $this->command = $command;
+
         $application = new Application();
         $application->add($this->command);
-        
+
         $this->commandTester = new CommandTester($this->command);
     }
 
     public function testExecuteSuccess(): void
     {
-        $domain1 = $this->createMock(Domain::class);
-        $domain1->method('getName')->willReturn('example.com');
-        
-        $domain2 = $this->createMock(Domain::class);
-        $domain2->method('getName')->willReturn('test.com');
-        
-        $domain3 = $this->createMock(Domain::class);
-        $domain3->method('getName')->willReturn('demo.com');
-        
-        $this->domainService->expects($this->once())
-            ->method('syncDomains')
-            ->willReturn([$domain1, $domain2, $domain3]);
+        $domain1 = TestEntityGenerator::createDomain('example.com');
+        $domain2 = TestEntityGenerator::createDomain('test.com');
+        $domain3 = TestEntityGenerator::createDomain('demo.com');
+
+        $this->domainService->setSyncDomainsResponse([$domain1, $domain2, $domain3]);
 
         $this->commandTester->execute([]);
 
@@ -55,9 +75,7 @@ class SyncDomainsCommandTest extends TestCase
 
     public function testExecuteWithNoDomains(): void
     {
-        $this->domainService->expects($this->once())
-            ->method('syncDomains')
-            ->willReturn([]);
+        $this->domainService->setSyncDomainsResponse([]);
 
         $this->commandTester->execute([]);
 
@@ -67,9 +85,7 @@ class SyncDomainsCommandTest extends TestCase
 
     public function testExecuteWithException(): void
     {
-        $this->domainService->expects($this->once())
-            ->method('syncDomains')
-            ->willThrowException(new TestException('API connection failed'));
+        $this->domainService->setSyncDomainsException(new TestException('API connection failed'));
 
         $this->commandTester->execute([]);
 

@@ -6,17 +6,15 @@ use DigitalOceanAccountBundle\Request\DigitalOceanRequest;
 
 /**
  * 创建域名请求
+ *
  * @see https://docs.digitalocean.com/reference/api/digitalocean/#operation/domains_create
  */
 class CreateDomainRequest extends DigitalOceanRequest
 {
-    private string $name;
-    private ?string $ipAddress = null;
-
-    public function __construct(string $name, ?string $ipAddress = null)
-    {
-        $this->name = $name;
-        $this->ipAddress = $ipAddress;
+    public function __construct(
+        private readonly string $name,
+        private readonly ?string $ipAddress = null,
+    ) {
     }
 
     public function getRequestPath(): string
@@ -29,13 +27,16 @@ class CreateDomainRequest extends DigitalOceanRequest
         return 'POST';
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getRequestOptions(): ?array
     {
         $data = [
             'name' => $this->name,
         ];
 
-        if ($this->ipAddress !== null) {
+        if (null !== $this->ipAddress) {
             $data['ip_address'] = $this->ipAddress;
         }
 

@@ -6,11 +6,13 @@ use DigitalOceanAccountBundle\Request\DigitalOceanRequest;
 
 /**
  * 获取域名列表请求
+ *
  * @see https://docs.digitalocean.com/reference/api/digitalocean/#tag/Domains/operation/domains_list
  */
 class ListDomainsRequest extends DigitalOceanRequest
 {
     private int $page = 1;
+
     private int $perPage = 20;
 
     public function getRequestPath(): string
@@ -18,6 +20,9 @@ class ListDomainsRequest extends DigitalOceanRequest
         return '/domains';
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getRequestOptions(): ?array
     {
         return [
@@ -28,15 +33,13 @@ class ListDomainsRequest extends DigitalOceanRequest
         ];
     }
 
-    public function setPage(int $page): self
+    public function setPage(int $page): void
     {
         $this->page = $page;
-        return $this;
     }
 
-    public function setPerPage(int $perPage): self
+    public function setPerPage(int $perPage): void
     {
         $this->perPage = $perPage;
-        return $this;
     }
 }

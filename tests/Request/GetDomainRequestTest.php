@@ -3,14 +3,21 @@
 namespace DigitalOceanDomainBundle\Tests\Request;
 
 use DigitalOceanDomainBundle\Request\GetDomainRequest;
-use PHPUnit\Framework\TestCase;
+use HttpClientBundle\Tests\Request\RequestTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 
-class GetDomainRequestTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(GetDomainRequest::class)]
+final class GetDomainRequestTest extends RequestTestCase
 {
     private GetDomainRequest $request;
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         $this->request = new GetDomainRequest('example.com');
     }
 
@@ -27,6 +34,7 @@ class GetDomainRequestTest extends TestCase
     public function testGetRequestOptions(): void
     {
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
         // GET请求不应有JSON数据
         $this->assertArrayNotHasKey('json', $options);
     }

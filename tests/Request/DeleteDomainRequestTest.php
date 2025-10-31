@@ -3,14 +3,21 @@
 namespace DigitalOceanDomainBundle\Tests\Request;
 
 use DigitalOceanDomainBundle\Request\DeleteDomainRequest;
-use PHPUnit\Framework\TestCase;
+use HttpClientBundle\Tests\Request\RequestTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 
-class DeleteDomainRequestTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(DeleteDomainRequest::class)]
+final class DeleteDomainRequestTest extends RequestTestCase
 {
     private DeleteDomainRequest $request;
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         $this->request = new DeleteDomainRequest('example.com');
     }
 
@@ -27,6 +34,7 @@ class DeleteDomainRequestTest extends TestCase
     public function testGetRequestOptions(): void
     {
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
         // 删除请求不应有JSON数据
         $this->assertArrayNotHasKey('json', $options);
     }

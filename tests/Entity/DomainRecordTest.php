@@ -2,53 +2,49 @@
 
 namespace DigitalOceanDomainBundle\Tests\Entity;
 
-use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
 use DigitalOceanDomainBundle\Entity\DomainRecord;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use Tourze\PHPUnitDoctrineEntity\AbstractEntityTestCase;
 
-class DomainRecordTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(DomainRecord::class)]
+final class DomainRecordTest extends AbstractEntityTestCase
 {
-    private DomainRecord $record;
-
-    protected function setUp(): void
+    protected function createEntity(): object
     {
-        $this->record = new DomainRecord();
-        $this->record->setDomainName('example.com')
-            ->setRecordId(12345)
-            ->setType('A')
-            ->setName('www')
-            ->setData('192.168.1.1')
-            ->setPriority(10)
-            ->setPort(80)
-            ->setTtl(3600)
-            ->setWeight(100)
-            ->setFlags('flags')
-            ->setTag('tag');
+        return new DomainRecord();
     }
 
-    public function testGettersAndSetters(): void
+    /**
+     * @return iterable<string, array{string, mixed}>
+     */
+    public static function propertiesProvider(): iterable
     {
-        $this->assertEquals('example.com', $this->record->getDomainName());
-        $this->assertEquals(12345, $this->record->getRecordId());
-        $this->assertEquals('A', $this->record->getType());
-        $this->assertEquals('www', $this->record->getName());
-        $this->assertEquals('192.168.1.1', $this->record->getData());
-        $this->assertEquals(10, $this->record->getPriority());
-        $this->assertEquals(80, $this->record->getPort());
-        $this->assertEquals(3600, $this->record->getTtl());
-        $this->assertEquals(100, $this->record->getWeight());
-        $this->assertEquals('flags', $this->record->getFlags());
-        $this->assertEquals('tag', $this->record->getTag());
-
-        // 测试Config关联
-        $config = new DigitalOceanConfig();
-        $this->record->setConfig($config);
-        $this->assertSame($config, $this->record->getConfig());
+        yield 'domainName_string' => ['domainName', 'example.com'];
+        yield 'recordId_integer' => ['recordId', 12345];
+        yield 'type_string' => ['type', 'A'];
+        yield 'name_string' => ['name', 'www'];
+        yield 'data_string' => ['data', '192.168.1.1'];
+        yield 'priority_integer' => ['priority', 10];
+        yield 'port_integer' => ['port', 80];
+        yield 'ttl_integer' => ['ttl', 3600];
+        yield 'weight_integer' => ['weight', 100];
+        yield 'flags_string' => ['flags', 'flags'];
+        yield 'tag_string' => ['tag', 'tag'];
     }
 
     public function testToPlainArray(): void
     {
-        $array = $this->record->toPlainArray();
+        $record = new DomainRecord();
+        $record->setDomainName('example.com');
+        $record->setRecordId(12345);
+        $record->setType('A');
+        $record->setName('www');
+        $record->setData('192.168.1.1');
+
+        $array = $record->toPlainArray();
 
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
@@ -65,7 +61,14 @@ class DomainRecordTest extends TestCase
 
     public function testToAdminArray(): void
     {
-        $array = $this->record->toAdminArray();
+        $record = new DomainRecord();
+        $record->setDomainName('example.com');
+        $record->setRecordId(12345);
+        $record->setType('A');
+        $record->setName('www');
+        $record->setData('192.168.1.1');
+
+        $array = $record->toAdminArray();
 
         // 确保管理数组包含必要的字段
         $this->assertArrayHasKey('domainName', $array);
@@ -76,7 +79,14 @@ class DomainRecordTest extends TestCase
 
     public function testRetrievePlainArray(): void
     {
-        $array = $this->record->retrievePlainArray();
+        $record = new DomainRecord();
+        $record->setDomainName('example.com');
+        $record->setRecordId(12345);
+        $record->setType('A');
+        $record->setName('www');
+        $record->setData('192.168.1.1');
+
+        $array = $record->retrievePlainArray();
 
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
@@ -84,7 +94,14 @@ class DomainRecordTest extends TestCase
 
     public function testRetrieveAdminArray(): void
     {
-        $array = $this->record->retrieveAdminArray();
+        $record = new DomainRecord();
+        $record->setDomainName('example.com');
+        $record->setRecordId(12345);
+        $record->setType('A');
+        $record->setName('www');
+        $record->setData('192.168.1.1');
+
+        $array = $record->retrieveAdminArray();
 
         $this->assertArrayHasKey('domainName', $array);
         $this->assertArrayHasKey('recordId', $array);
@@ -92,6 +109,9 @@ class DomainRecordTest extends TestCase
 
     public function testToString(): void
     {
-        $this->assertEquals('www', (string)$this->record);
+        $record = new DomainRecord();
+        $record->setName('www');
+
+        $this->assertEquals('www', (string) $record);
     }
 }

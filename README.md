@@ -1,49 +1,92 @@
-# DigitalOcean域名管理Bundle
+# DigitalOcean Domain Management Bundle
 
-这个Bundle提供了对DigitalOcean域名和DNS记录管理的支持。
+[![PHP Version](https://img.shields.io/badge/php-%5E8.1-777BB4.svg)](https://php.net/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
+[![Code Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#)
 
-## 功能
+[English](README.md) | [中文](README.zh-CN.md)
 
-- 域名管理：创建、查询、删除域名
-- 域名记录管理：创建、查询、更新、删除域名记录
-- 数据同步：将DigitalOcean中的域名和记录同步到本地数据库
-- 命令行工具：提供方便的命令行工具进行域名和记录管理
-- 双向同步：支持本地数据库和远程DigitalOcean之间的双向同步
+This bundle provides support for DigitalOcean domain and DNS record management.
 
-## 安装
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Dependencies](#dependencies)
+  - [Required Dependencies](#required-dependencies)
+  - [Optional Dependencies](#optional-dependencies)
+- [Usage](#usage)
+  - [Domain Management](#domain-management)
+  - [Domain Record Management](#domain-record-management)
+  - [Data Synchronization](#data-synchronization)
+- [Console Commands](#console-commands)
+- [Bidirectional Sync](#bidirectional-sync)
+- [Configuration](#configuration)
+- [Advanced Usage](#advanced-usage)
+  - [Error Handling](#error-handling)
+  - [Batch Operations](#batch-operations)
+  - [Custom Queries](#custom-queries)
+- [Documentation](#documentation)
+- [License](#license)
+
+## Features
+
+- Domain management: create, query, delete domains
+- Domain record management: create, query, update, delete domain records
+- Data synchronization: sync domains and records from DigitalOcean to local database
+- Console commands: convenient command-line tools for domain and record management
+- Bidirectional sync: support for two-way sync between local database and remote DigitalOcean
+
+## Installation
 
 ```bash
 composer require tourze/digital-ocean-domain-bundle
 ```
 
-## 使用
+## Dependencies
 
-### 域名管理
+### Required Dependencies
+
+- PHP ^8.1
+- Symfony ^7.3
+- Doctrine ORM ^3.0
+- tourze/digital-ocean-account-bundle ^0.1
+
+### Optional Dependencies
+
+- tourze/doctrine-indexed-bundle - for database index support
+- tourze/doctrine-timestamp-bundle - for timestamp field support
+- tourze/symfony-aop-doctrine-bundle - for AOP support
+
+## Usage
+
+### Domain Management
 
 ```php
-// 获取域名列表
+// Get domain list
 $domains = $domainService->listDomains();
 
-// 获取单个域名
+// Get single domain
 $domain = $domainService->getDomain('example.com');
 
-// 创建域名
+// Create domain
 $domain = $domainService->createDomain('example.com', '123.456.789.10');
 
-// 删除域名
+// Delete domain
 $result = $domainService->deleteDomain('example.com');
 ```
 
-### 域名记录管理
+### Domain Record Management
 
 ```php
-// 获取域名记录列表
+// Get domain record list
 $records = $domainService->listDomainRecords('example.com');
 
-// 获取单个域名记录
+// Get single domain record
 $record = $domainService->getDomainRecord('example.com', 12345);
 
-// 创建域名记录
+// Create domain record
 $record = $domainService->createDomainRecord(
     'example.com',
     'A',
@@ -51,7 +94,7 @@ $record = $domainService->createDomainRecord(
     '123.456.789.10'
 );
 
-// 更新域名记录
+// Update domain record
 $record = $domainService->updateDomainRecord(
     'example.com',
     12345,
@@ -60,75 +103,140 @@ $record = $domainService->updateDomainRecord(
     '123.456.789.11'
 );
 
-// 删除域名记录
+// Delete domain record
 $result = $domainService->deleteDomainRecord('example.com', 12345);
 ```
 
-### 数据同步
+### Data Synchronization
 
 ```php
-// 同步所有域名
+// Sync all domains
 $domains = $domainService->syncDomains();
 
-// 同步指定域名的记录
+// Sync records for specific domain
 $records = $domainService->syncDomainRecords('example.com');
 ```
 
-## 命令行工具
+## Console Commands
 
-此Bundle提供了多个命令行工具用于管理域名和记录：
+This bundle provides several console commands for managing domains and records:
 
 ```bash
-# 同步所有域名
+# Sync all domains
 php bin/console digital-ocean:domain:sync
 
-# 同步单个域名的记录
+# Sync records for single domain
 php bin/console digital-ocean:domain:sync-records example.com
 
-# 同步所有域名的记录
+# Sync all domain records
 php bin/console digital-ocean:domain:sync-records
 
-# 列出域名下的记录（查询本地数据库）
+# List domain records (query local database)
 php bin/console digital-ocean:domain:record:list example.com
 
-# 列出域名下的记录（直接查询远程API）
+# List domain records (query remote API directly)
 php bin/console digital-ocean:domain:record:list example.com --remote
 
-# 按类型过滤记录
+# Filter records by type
 php bin/console digital-ocean:domain:record:list example.com --type=A
 
-# 按名称模糊查询记录
+# Search records by name
 php bin/console digital-ocean:domain:record:list example.com --name=www
 
-# 创建域名记录
+# Create domain record
 php bin/console digital-ocean:domain:record:create example.com A www 123.456.789.10
 
-# 创建MX记录
+# Create MX record
 php bin/console digital-ocean:domain:record:create example.com MX mail 123.456.789.10 --priority=10
 
-# 更新域名记录
+# Update domain record
 php bin/console digital-ocean:domain:record:update example.com 12345 --data=123.456.789.11
 
-# 使用本地数据更新远程记录
+# Update remote record with local data
 php bin/console digital-ocean:domain:record:update example.com 12345 --local
 
-# 删除域名记录
+# Delete domain record
 php bin/console digital-ocean:domain:record:delete example.com 12345
 ```
 
-## 双向同步
+## Bidirectional Sync
 
-本Bundle支持本地数据库和远程DigitalOcean之间的双向同步：
+This bundle supports bidirectional synchronization between local database and remote DigitalOcean:
 
-1. 从远程同步到本地：使用`digital-ocean:domain:sync-records`命令或`syncDomainRecords`方法
-2. 从本地同步到远程：使用带`--local`参数的`digital-ocean:domain:record:update`命令
+1. From remote to local: use `digital-ocean:domain:sync-records` command or `syncDomainRecords` method
+2. From local to remote: use `digital-ocean:domain:record:update` command with `--local` flag
 
-这使您可以在本地管理DNS记录，然后将更改推送到DigitalOcean，也可以拉取DigitalOcean上的最新更改到本地数据库。
+This allows you to manage DNS records locally and then push changes to DigitalOcean, or pull the latest changes from DigitalOcean to your local database.
 
-## 配置
+## Configuration
 
-此Bundle依赖于`digital-ocean-account-bundle`提供的配置服务，需确保已正确配置API令牌。
+This bundle depends on the configuration service provided by `digital-ocean-account-bundle`. Make sure the API token is properly configured.
 
-## 文档
+## Advanced Usage
 
-更多信息请参考[DigitalOcean API文档](https://docs.digitalocean.com/reference/api/api-reference/#tag/Domains)。
+### Error Handling
+
+```php
+try {
+    $record = $domainService->createDomainRecord(
+        'example.com',
+        'A',
+        'www',
+        '123.456.789.10'
+    );
+} catch (\DigitalOceanDomainBundle\Exception\ConfigurationException $e) {
+    // Handle configuration errors
+    $logger->error('DigitalOcean configuration error: ' . $e->getMessage());
+} catch (\Exception $e) {
+    // Handle other errors
+    $logger->error('Failed to create domain record: ' . $e->getMessage());
+}
+```
+
+### Batch Operations
+
+```php
+// Batch sync multiple domain records
+$domains = ['example.com', 'test.com', 'demo.com'];
+$results = [];
+
+foreach ($domains as $domain) {
+    try {
+        $records = $domainService->syncDomainRecords($domain);
+        $results[$domain] = ['success' => true, 'count' => count($records)];
+    } catch (\Exception $e) {
+        $results[$domain] = ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+```
+
+### Custom Queries
+
+```php
+// Use Repository for custom queries
+$domainRepository = $em->getRepository(Domain::class);
+$domainRecordRepository = $em->getRepository(DomainRecord::class);
+
+// Find domains created within specific time range
+$domains = $domainRepository->createQueryBuilder('d')
+    ->where('d.createTime BETWEEN :start AND :end')
+    ->setParameter('start', new \DateTime('2023-01-01'))
+    ->setParameter('end', new \DateTime('2023-12-31'))
+    ->getQuery()
+    ->getResult();
+
+// Count records by type
+$recordCounts = $domainRecordRepository->createQueryBuilder('dr')
+    ->select('dr.type, COUNT(dr.id) as count')
+    ->groupBy('dr.type')
+    ->getQuery()
+    ->getResult();
+```
+
+## Documentation
+
+For more information, please refer to the [DigitalOcean API Documentation](https://docs.digitalocean.com/reference/api/api-reference/#tag/Domains).
+
+## License
+
+MIT

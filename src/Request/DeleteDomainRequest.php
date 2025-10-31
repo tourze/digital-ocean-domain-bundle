@@ -6,15 +6,14 @@ use DigitalOceanAccountBundle\Request\DigitalOceanRequest;
 
 /**
  * 删除域名请求
+ *
  * @see https://docs.digitalocean.com/reference/api/digitalocean/#operation/domains_delete
  */
 class DeleteDomainRequest extends DigitalOceanRequest
 {
-    private string $domainName;
-
-    public function __construct(string $domainName)
-    {
-        $this->domainName = $domainName;
+    public function __construct(
+        private readonly string $domainName,
+    ) {
     }
 
     public function getRequestPath(): string

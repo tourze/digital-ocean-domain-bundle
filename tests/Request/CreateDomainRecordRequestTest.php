@@ -3,14 +3,21 @@
 namespace DigitalOceanDomainBundle\Tests\Request;
 
 use DigitalOceanDomainBundle\Request\CreateDomainRecordRequest;
-use PHPUnit\Framework\TestCase;
+use HttpClientBundle\Tests\Request\RequestTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 
-class CreateDomainRecordRequestTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(CreateDomainRecordRequest::class)]
+final class CreateDomainRecordRequestTest extends RequestTestCase
 {
     private CreateDomainRecordRequest $request;
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         $this->request = new CreateDomainRecordRequest(
             'example.com',
             'A',
@@ -32,40 +39,46 @@ class CreateDomainRecordRequestTest extends TestCase
     public function testGetRequestOptionsWithRequiredParamsOnly(): void
     {
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
         $this->assertArrayHasKey('json', $options);
-        $this->assertArrayHasKey('type', $options['json']);
-        $this->assertArrayHasKey('name', $options['json']);
-        $this->assertArrayHasKey('data', $options['json']);
+        $this->assertIsArray($options['json']);
+        $jsonOptions = $options['json'];
+        $this->assertArrayHasKey('type', $jsonOptions);
+        $this->assertArrayHasKey('name', $jsonOptions);
+        $this->assertArrayHasKey('data', $jsonOptions);
 
-        $this->assertEquals('A', $options['json']['type']);
-        $this->assertEquals('www', $options['json']['name']);
-        $this->assertEquals('192.168.1.1', $options['json']['data']);
+        $this->assertEquals('A', $jsonOptions['type']);
+        $this->assertEquals('www', $jsonOptions['name']);
+        $this->assertEquals('192.168.1.1', $jsonOptions['data']);
     }
 
     public function testGetRequestOptionsWithAllParams(): void
     {
-        $this->request->setPriority(10)
-            ->setPort(80)
-            ->setTtl(3600)
-            ->setWeight(100)
-            ->setFlags('flags')
-            ->setTag('tag');
+        $this->request->setPriority(10);
+        $this->request->setPort(80);
+        $this->request->setTtl(3600);
+        $this->request->setWeight(100);
+        $this->request->setFlags('flags');
+        $this->request->setTag('tag');
 
         $options = $this->request->getRequestOptions();
+        $this->assertIsArray($options);
+        $this->assertArrayHasKey('json', $options);
+        $this->assertIsArray($options['json']);
+        $jsonOptions = $options['json'];
+        $this->assertArrayHasKey('priority', $jsonOptions);
+        $this->assertArrayHasKey('port', $jsonOptions);
+        $this->assertArrayHasKey('ttl', $jsonOptions);
+        $this->assertArrayHasKey('weight', $jsonOptions);
+        $this->assertArrayHasKey('flags', $jsonOptions);
+        $this->assertArrayHasKey('tag', $jsonOptions);
 
-        $this->assertArrayHasKey('priority', $options['json']);
-        $this->assertArrayHasKey('port', $options['json']);
-        $this->assertArrayHasKey('ttl', $options['json']);
-        $this->assertArrayHasKey('weight', $options['json']);
-        $this->assertArrayHasKey('flags', $options['json']);
-        $this->assertArrayHasKey('tag', $options['json']);
-
-        $this->assertEquals(10, $options['json']['priority']);
-        $this->assertEquals(80, $options['json']['port']);
-        $this->assertEquals(3600, $options['json']['ttl']);
-        $this->assertEquals(100, $options['json']['weight']);
-        $this->assertEquals('flags', $options['json']['flags']);
-        $this->assertEquals('tag', $options['json']['tag']);
+        $this->assertEquals(10, $jsonOptions['priority']);
+        $this->assertEquals(80, $jsonOptions['port']);
+        $this->assertEquals(3600, $jsonOptions['ttl']);
+        $this->assertEquals(100, $jsonOptions['weight']);
+        $this->assertEquals('flags', $jsonOptions['flags']);
+        $this->assertEquals('tag', $jsonOptions['tag']);
     }
 
     public function testSetApiKey(): void

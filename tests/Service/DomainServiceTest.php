@@ -17,7 +17,7 @@ use Psr\Log\LoggerInterface;
 use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 
 /*
- * 注意：此包需要添加依赖 "tourze/http-client-bundle": "0.1.*" 到 composer.json
+ * 注意：此包需要添加依赖 "tourze/http-client-bundle": "1.0.*" 到 composer.json
  * 才能正确解析 HttpClientBundle\Request\RequestInterface
  */
 

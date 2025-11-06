@@ -45,16 +45,29 @@ readonly class DomainService implements DomainServiceInterface
      */
     private function prepareRequest(object $request): void
     {
-        $config = $this->configService->getConfig();
-        if (null === $config) {
-            throw new ConfigurationException('未配置 DigitalOcean API Key');
-        }
+        try {
+            $config = $this->configService->getConfig();
+            if (null === $config) {
+                throw new ConfigurationException('未配置 DigitalOcean API Key');
+            }
 
-        if (!method_exists($request, 'setApiKey')) {
-            throw new \InvalidArgumentException('Request must have setApiKey method');
-        }
+            if (!method_exists($request, 'setApiKey')) {
+                throw new \InvalidArgumentException('Request must have setApiKey method');
+            }
 
-        $request->setApiKey($config->getApiKey());
+            $apiKey = $config->getApiKey();
+            if (empty($apiKey)) {
+                throw new ConfigurationException('DigitalOcean API Key 不能为空');
+            }
+
+            $request->setApiKey($apiKey);
+        } catch (\Exception $e) {
+            $this->logger->error('准备API请求时发生错误', [
+                'error' => $e->getMessage(),
+                'request_class' => get_class($request),
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -63,15 +76,33 @@ readonly class DomainService implements DomainServiceInterface
      */
     public function listDomains(int $page = 1, int $perPage = 20): array
     {
-        $request = new ListDomainsRequest();
-        $request->setPage($page);
-        $request->setPerPage($perPage);
+        // 参数验证
+        if ($page < 1) {
+            throw new \InvalidArgumentException('页码必须大于0');
+        }
 
-        $this->prepareRequest($request);
+        if ($perPage < 1 || $perPage > 200) {
+            throw new \InvalidArgumentException('每页数量必须在1-200之间');
+        }
 
-        $response = $this->executeApiRequest($request);
+        try {
+            $request = new ListDomainsRequest();
+            $request->setPage($page);
+            $request->setPerPage($perPage);
 
-        return $this->responseValidator->validateListDomainsResponse($response);
+            $this->prepareRequest($request);
+
+            $response = $this->executeApiRequest($request);
+
+            return $this->responseValidator->validateListDomainsResponse($response);
+        } catch (\Exception $e) {
+            $this->logger->error('获取域名列表时发生错误', [
+                'error' => $e->getMessage(),
+                'page' => $page,
+                'per_page' => $perPage,
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -80,12 +111,29 @@ readonly class DomainService implements DomainServiceInterface
      */
     public function getDomain(string $domainName): array
     {
-        $request = new GetDomainRequest($domainName);
-        $this->prepareRequest($request);
+        // 参数验证
+        if (empty(trim($domainName))) {
+            throw new \InvalidArgumentException('域名不能为空');
+        }
 
-        $response = $this->executeApiRequest($request);
+        if (strlen($domainName) > 253) {
+            throw new \InvalidArgumentException('域名长度不能超过253个字符');
+        }
 
-        return $this->responseValidator->validateDomainResponse($response);
+        try {
+            $request = new GetDomainRequest($domainName);
+            $this->prepareRequest($request);
+
+            $response = $this->executeApiRequest($request);
+
+            return $this->responseValidator->validateDomainResponse($response);
+        } catch (\Exception $e) {
+            $this->logger->error('获取域名信息时发生错误', [
+                'error' => $e->getMessage(),
+                'domain_name' => $domainName,
+            ]);
+            throw $e;
+        }
     }
 
     /**

@@ -15,6 +15,18 @@ class CreateDomainRequest extends DigitalOceanRequest
         private readonly string $name,
         private readonly ?string $ipAddress = null,
     ) {
+        // 参数验证
+        if (empty(trim($this->name))) {
+            throw new \InvalidArgumentException('Domain name cannot be empty');
+        }
+
+        if (strlen($this->name) > 253) {
+            throw new \InvalidArgumentException('Domain name cannot exceed 253 characters');
+        }
+
+        if ($this->ipAddress !== null && !filter_var($this->ipAddress, FILTER_VALIDATE_IP)) {
+            throw new \InvalidArgumentException('Invalid IP address format');
+        }
     }
 
     public function getRequestPath(): string

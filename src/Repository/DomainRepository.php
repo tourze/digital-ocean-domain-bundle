@@ -20,17 +20,33 @@ class DomainRepository extends ServiceEntityRepository
 
     public function save(Domain $entity, bool $flush = true): void
     {
-        $this->getEntityManager()->persist($entity);
-        if ($flush) {
-            $this->getEntityManager()->flush();
+        if ($entity === null) {
+            throw new \InvalidArgumentException('Entity cannot be null');
+        }
+
+        try {
+            $this->getEntityManager()->persist($entity);
+            if ($flush) {
+                $this->getEntityManager()->flush();
+            }
+        } catch (\Exception $e) {
+            throw new \RuntimeException('Failed to save domain entity: ' . $e->getMessage(), 0, $e);
         }
     }
 
     public function remove(Domain $entity, bool $flush = true): void
     {
-        $this->getEntityManager()->remove($entity);
-        if ($flush) {
-            $this->getEntityManager()->flush();
+        if ($entity === null) {
+            throw new \InvalidArgumentException('Entity cannot be null');
+        }
+
+        try {
+            $this->getEntityManager()->remove($entity);
+            if ($flush) {
+                $this->getEntityManager()->flush();
+            }
+        } catch (\Exception $e) {
+            throw new \RuntimeException('Failed to remove domain entity: ' . $e->getMessage(), 0, $e);
         }
     }
 }

@@ -33,6 +33,31 @@ class DomainRecordRepository extends ServiceEntityRepository
      */
     public function findByDomainAndName(string $domain, string $name, ?string $type = null, ?int $limit = null, ?int $offset = null): array
     {
+        // 参数验证
+        if (empty(trim($domain))) {
+            throw new \InvalidArgumentException('Domain cannot be empty');
+        }
+
+        if (empty(trim($name))) {
+            throw new \InvalidArgumentException('Name cannot be empty');
+        }
+
+        if (strlen($domain) > 253) {
+            throw new \InvalidArgumentException('Domain name too long');
+        }
+
+        if (strlen($name) > 255) {
+            throw new \InvalidArgumentException('Record name too long');
+        }
+
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be non-negative');
+        }
+
         $qb = $this->createQueryBuilder('r')
             ->where('r.domainName = :domain')
             ->andWhere('r.name LIKE :name')

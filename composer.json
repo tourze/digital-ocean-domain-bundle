@@ -29,7 +29,7 @@
     "tourze/bundle-dependency": "1.*",
     "tourze/digital-ocean-account-bundle": "0.1.*",
     "tourze/doctrine-indexed-bundle": "1.0.*",
-    "tourze/doctrine-timestamp-bundle": "1.0.*",
+    "tourze/doctrine-timestamp-bundle": "1.1.*",
     "tourze/easy-admin-menu-bundle": "1.0.*",
     "tourze/symfony-aop-bundle": "1.0.*",
     "tourze/symfony-aop-doctrine-bundle": "1.0.*",

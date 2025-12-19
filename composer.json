@@ -27,7 +27,7 @@
     "symfony/yaml": "^7.3",
     "tourze/arrayable": "1.*",
     "tourze/bundle-dependency": "1.*",
-    "tourze/digital-ocean-account-bundle": "0.1.*",
+    "tourze/digital-ocean-account-bundle": "0.2.*",
     "tourze/doctrine-indexed-bundle": "1.0.*",
     "tourze/doctrine-timestamp-bundle": "1.1.*",
     "tourze/easy-admin-menu-bundle": "1.0.*",

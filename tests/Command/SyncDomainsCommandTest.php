@@ -1,16 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DigitalOceanDomainBundle\Tests\Command;
 
-use DigitalOceanAccountBundle\DigitalOceanAccountBundle;
+use DigitalOceanAccountBundle\Client\DigitalOceanClient;
+use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
+use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Command\SyncDomainsCommand;
-use DigitalOceanDomainBundle\DigitalOceanDomainBundle;
-use DigitalOceanDomainBundle\Entity\Domain;
-use DigitalOceanDomainBundle\Entity\DomainRecord;
-use DigitalOceanDomainBundle\Service\DomainServiceInterface;
-use DigitalOceanDomainBundle\Tests\Exception\TestException;
-use DigitalOceanDomainBundle\Tests\Helper\TestDomainService;
-use DigitalOceanDomainBundle\Tests\Helper\TestEntityGenerator;
+use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,7 +24,7 @@ use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
 #[RunTestsInSeparateProcesses]
 final class SyncDomainsCommandTest extends AbstractCommandTestCase
 {
-    private TestDomainService $domainService;
+    private MockObject&DigitalOceanClient $client;
 
     private SyncDomainsCommand $command;
 
@@ -38,30 +37,59 @@ final class SyncDomainsCommandTest extends AbstractCommandTestCase
 
     protected function onSetUp(): void
     {
-        $this->domainService = new TestDomainService();
+        // 创建配置
+        $config = new DigitalOceanConfig();
+        $config->setApiKey('test_api_key');
 
-        // 从容器中获取Command服务，符合集成测试最佳实践
+        // Mock 网络层（DigitalOceanClient）
+        $this->client = $this->createMock(DigitalOceanClient::class);
+        $configService = $this->createMock(DigitalOceanConfigService::class);
+        $configService->method('getConfig')->willReturn($config);
+
+        // Mock Repository（避免真实数据库操作）
+        $domainRepository = $this->createMock(DomainRepository::class);
+        $domainRecordRepository = $this->createMock(DomainRecordRepository::class);
+
+        // 将 Mock 注入容器
         $container = self::getContainer();
-        $container->set(DomainServiceInterface::class, $this->domainService);
-        $command = $container->get(SyncDomainsCommand::class);
-        if (!$command instanceof SyncDomainsCommand) {
-            throw new \RuntimeException('Failed to get SyncDomainsCommand instance');
-        }
-        $this->command = $command;
+        $container->set(DigitalOceanClient::class, $this->client);
+        $container->set(DigitalOceanConfigService::class, $configService);
+        $container->set(DomainRepository::class, $domainRepository);
+        $container->set(DomainRecordRepository::class, $domainRecordRepository);
+
+        // 从容器获取 Command（使用真正的 DomainService）
+        $this->command = self::getService(SyncDomainsCommand::class);
 
         $application = new Application();
-        $application->add($this->command);
+        $application->addCommand($this->command);
 
         $this->commandTester = new CommandTester($this->command);
     }
 
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function setClientResponse(array $response): void
+    {
+        $this->client->method('request')->willReturn($response);
+    }
+
+    private function setClientException(\Throwable $exception): void
+    {
+        $this->client->method('request')->willThrowException($exception);
+    }
+
     public function testExecuteSuccess(): void
     {
-        $domain1 = TestEntityGenerator::createDomain('example.com');
-        $domain2 = TestEntityGenerator::createDomain('test.com');
-        $domain3 = TestEntityGenerator::createDomain('demo.com');
-
-        $this->domainService->setSyncDomainsResponse([$domain1, $domain2, $domain3]);
+        $this->setClientResponse([
+            'domains' => [
+                ['name' => 'example.com', 'ttl' => 1800],
+                ['name' => 'test.com', 'ttl' => 1800],
+                ['name' => 'demo.com', 'ttl' => 1800],
+            ],
+            'meta' => ['total' => 3],
+            'links' => [],
+        ]);
 
         $this->commandTester->execute([]);
 
@@ -75,7 +103,11 @@ final class SyncDomainsCommandTest extends AbstractCommandTestCase
 
     public function testExecuteWithNoDomains(): void
     {
-        $this->domainService->setSyncDomainsResponse([]);
+        $this->setClientResponse([
+            'domains' => [],
+            'meta' => ['total' => 0],
+            'links' => [],
+        ]);
 
         $this->commandTester->execute([]);
 
@@ -85,7 +117,7 @@ final class SyncDomainsCommandTest extends AbstractCommandTestCase
 
     public function testExecuteWithException(): void
     {
-        $this->domainService->setSyncDomainsException(new TestException('API connection failed'));
+        $this->setClientException(new \RuntimeException('API connection failed'));
 
         $this->commandTester->execute([]);
 

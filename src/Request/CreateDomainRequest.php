@@ -16,7 +16,7 @@ class CreateDomainRequest extends DigitalOceanRequest
         private readonly ?string $ipAddress = null,
     ) {
         // 参数验证
-        if (empty(trim($this->name))) {
+        if ('' === trim($this->name)) {
             throw new \InvalidArgumentException('Domain name cannot be empty');
         }
 

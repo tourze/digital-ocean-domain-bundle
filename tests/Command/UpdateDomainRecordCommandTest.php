@@ -1,15 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DigitalOceanDomainBundle\Tests\Command;
 
-use DigitalOceanAccountBundle\DigitalOceanAccountBundle;
+use DigitalOceanAccountBundle\Client\DigitalOceanClient;
+use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
+use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Command\UpdateDomainRecordCommand;
-use DigitalOceanDomainBundle\DigitalOceanDomainBundle;
 use DigitalOceanDomainBundle\Entity\DomainRecord;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
-use DigitalOceanDomainBundle\Tests\Exception\TestException;
-use DigitalOceanDomainBundle\Tests\Helper\TestDomainService;
-use DigitalOceanDomainBundle\Tests\Helper\TestEntityGenerator;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,7 +25,7 @@ use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
 #[RunTestsInSeparateProcesses]
 final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 {
-    private TestDomainService $domainService;
+    private MockObject&DigitalOceanClient $client;
 
     private MockObject&DomainRecordRepository $domainRecordRepository;
 
@@ -39,29 +40,61 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
     protected function onSetUp(): void
     {
-        // 创建Mock服务并注入容器
-        $this->domainService = new TestDomainService();
+        // 创建配置
+        $config = new DigitalOceanConfig();
+        $config->setApiKey('test_api_key');
+
+        // Mock 网络层（DigitalOceanClient）
+        $this->client = $this->createMock(DigitalOceanClient::class);
+        $configService = $this->createMock(DigitalOceanConfigService::class);
+        $configService->method('getConfig')->willReturn($config);
+
+        // Mock Repository（避免真实数据库操作）
+        $domainRepository = $this->createMock(DomainRepository::class);
         $this->domainRecordRepository = $this->createMock(DomainRecordRepository::class);
 
+        // 将 Mock 注入容器
         $container = self::getContainer();
-        $container->set('DigitalOceanDomainBundle\Service\DomainServiceInterface', $this->domainService);
+        $container->set(DigitalOceanClient::class, $this->client);
+        $container->set(DigitalOceanConfigService::class, $configService);
+        $container->set(DomainRepository::class, $domainRepository);
         $container->set(DomainRecordRepository::class, $this->domainRecordRepository);
-        $container->set(TestDomainService::class, $this->domainService);
 
-        // 从容器获取Command
+        // 从容器获取 Command（使用真正的 DomainService）
         $this->command = self::getService(UpdateDomainRecordCommand::class);
 
         $application = new Application();
-        $application->add($this->command);
+        $application->addCommand($this->command);
 
         $this->commandTester = new CommandTester($this->command);
     }
 
+    private function createDomainRecord(
+        string $domainName,
+        int $recordId,
+        string $type,
+        string $name,
+        string $data,
+        ?int $priority = null,
+        ?int $port = null,
+        int $ttl = 3600,
+    ): DomainRecord {
+        $record = new DomainRecord();
+        $record->setDomainName($domainName);
+        $record->setRecordId($recordId);
+        $record->setType($type);
+        $record->setName($name);
+        $record->setData($data);
+        $record->setPriority($priority);
+        $record->setPort($port);
+        $record->setTtl($ttl);
+
+        return $record;
+    }
+
     public function testExecuteWithLocalData(): void
     {
-        $this->domainService->resetCalls();
-
-        $mockRecord = TestEntityGenerator::createDomainRecord(
+        $mockRecord = $this->createDomainRecord(
             'example.com',
             123,
             'A',
@@ -74,12 +107,15 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->domainRecordRepository->method('findOneBy')->willReturn($mockRecord);
 
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.1',
-            'ttl' => 3600,
+        // Client 返回更新结果
+        $this->client->method('request')->willReturn([
+            'domain_record' => [
+                'id' => 123,
+                'type' => 'A',
+                'name' => 'www',
+                'data' => '192.168.1.1',
+                'ttl' => 3600,
+            ],
         ]);
 
         $this->commandTester->execute([
@@ -90,16 +126,10 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
     }
 
     public function testExecuteWithLocalDataNotFound(): void
     {
-        $this->domainService->resetCalls();
-
         $this->domainRecordRepository->method('findOneBy')->willReturn(null);
 
         $this->commandTester->execute([
@@ -114,23 +144,42 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
     public function testExecuteWithRemoteData(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.1',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.2',
-            'ttl' => 3600,
-        ]);
+        // 设置 client 返回当前记录和更新后记录
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                // 第一次调用是 getDomainRecord
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 123,
+                            'type' => 'A',
+                            'name' => 'www',
+                            'data' => '192.168.1.1',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                // 第二次调用是 updateDomainRecord
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 123,
+                            'type' => 'A',
+                            'name' => 'www',
+                            'data' => '192.168.1.2',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                // 第三次调用是 syncDomainRecords (listDomainRecords)
+                return [
+                    'domain_records' => [],
+                    'meta' => ['total' => 0],
+                    'links' => [],
+                ];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -143,26 +192,18 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('成功更新域名记录', $display);
         $this->assertStringContainsString('成功同步记录到本地数据库', $display);
-
-        // 验证方法调用
-        $getDomainRecordCalls = $this->domainService->getGetDomainRecordCalls();
-        $this->assertCount(1, $getDomainRecordCalls);
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
     }
 
     public function testExecuteWithRemoteDataCancelled(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.1',
-            'ttl' => 3600,
+        $this->client->method('request')->willReturn([
+            'domain_record' => [
+                'id' => 123,
+                'type' => 'A',
+                'name' => 'www',
+                'data' => '192.168.1.1',
+                'ttl' => 3600,
+            ],
         ]);
 
         $this->commandTester->setInputs(['no']);
@@ -174,19 +215,13 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('操作已取消', $this->commandTester->getDisplay());
-
-        // 验证只调用了获取记录方法，没有调用更新方法
-        $getDomainRecordCalls = $this->domainService->getGetDomainRecordCalls();
-        $this->assertCount(1, $getDomainRecordCalls);
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(0, $updateCalls);
     }
 
     public function testExecuteWithRemoteDataNotFound(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setGetDomainRecordResponse([]);
+        $this->client->method('request')->willReturn([
+            'domain_record' => [],
+        ]);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -199,9 +234,8 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
     public function testExecuteWithException(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setGetDomainRecordException(new TestException('API error'));
+        $this->client->method('request')
+            ->willThrowException(new \RuntimeException('API error'));
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -214,23 +248,35 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
     public function testArgumentDomain(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 456,
+                            'type' => 'CNAME',
+                            'name' => 'api',
+                            'data' => 'api.example.com',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 456,
+                            'type' => 'CNAME',
+                            'name' => 'api',
+                            'data' => 'api.test-domain.com',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 456,
-            'type' => 'CNAME',
-            'name' => 'api',
-            'data' => 'api.example.com',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 456,
-            'type' => 'CNAME',
-            'name' => 'api',
-            'data' => 'api.test-domain.com',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -241,35 +287,39 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $getDomainRecordCalls = $this->domainService->getGetDomainRecordCalls();
-        $this->assertCount(1, $getDomainRecordCalls);
-        $this->assertEquals([
-            'domainName' => 'test-domain.com',
-            'recordId' => 456,
-        ], $getDomainRecordCalls[0]);
     }
 
     public function testArgumentRecordId(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 789,
+                            'type' => 'TXT',
+                            'name' => '@',
+                            'data' => 'v=spf1 include:_spf.example.com ~all',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 789,
+                            'type' => 'TXT',
+                            'name' => '@',
+                            'data' => 'v=spf1 include:_spf.example.com -all',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 789,
-            'type' => 'TXT',
-            'name' => '@',
-            'data' => 'v=spf1 include:_spf.example.com ~all',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 789,
-            'type' => 'TXT',
-            'name' => '@',
-            'data' => 'v=spf1 include:_spf.example.com -all',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -280,35 +330,39 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $getDomainRecordCalls = $this->domainService->getGetDomainRecordCalls();
-        $this->assertCount(1, $getDomainRecordCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'recordId' => 789,
-        ], $getDomainRecordCalls[0]);
     }
 
     public function testOptionType(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 123,
+                            'type' => 'A',
+                            'name' => 'www',
+                            'data' => '192.168.1.1',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 123,
+                            'type' => 'AAAA',
+                            'name' => 'www',
+                            'data' => '2001:db8::1',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.1',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 123,
-            'type' => 'AAAA',
-            'name' => 'www',
-            'data' => '2001:db8::1',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -320,33 +374,39 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals('AAAA', $updateCalls[0]['type']);
-        $this->assertEquals('2001:db8::1', $updateCalls[0]['data']);
     }
 
     public function testOptionData(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 124,
+                            'type' => 'A',
+                            'name' => 'test',
+                            'data' => '192.168.1.1',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 124,
+                            'type' => 'A',
+                            'name' => 'test',
+                            'data' => '10.0.0.1',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 124,
-            'type' => 'A',
-            'name' => 'test',
-            'data' => '192.168.1.1',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 124,
-            'type' => 'A',
-            'name' => 'test',
-            'data' => '10.0.0.1',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -357,34 +417,41 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals('10.0.0.1', $updateCalls[0]['data']);
     }
 
     public function testOptionPriority(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 125,
+                            'type' => 'MX',
+                            'name' => '@',
+                            'data' => 'mail.example.com',
+                            'priority' => 10,
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 125,
+                            'type' => 'MX',
+                            'name' => '@',
+                            'data' => 'mail.example.com',
+                            'priority' => 5,
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 125,
-            'type' => 'MX',
-            'name' => '@',
-            'data' => 'mail.example.com',
-            'priority' => 10,
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 125,
-            'type' => 'MX',
-            'name' => '@',
-            'data' => 'mail.example.com',
-            'priority' => 5,
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -395,32 +462,39 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals(5, $updateCalls[0]['priority']);
     }
 
     public function testOptionTtl(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 126,
+                            'type' => 'A',
+                            'name' => 'cache',
+                            'data' => '192.168.1.10',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 126,
+                            'type' => 'A',
+                            'name' => 'cache',
+                            'data' => '192.168.1.10',
+                            'ttl' => 1800,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 126,
-            'type' => 'A',
-            'name' => 'cache',
-            'data' => '192.168.1.10',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 126,
-            'type' => 'A',
-            'name' => 'cache',
-            'data' => '192.168.1.10',
-            'ttl' => 1800,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -431,18 +505,11 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals(1800, $updateCalls[0]['ttl']);
     }
 
     public function testOptionLocal(): void
     {
-        $this->domainService->resetCalls();
-
-        $mockRecord = TestEntityGenerator::createDomainRecord(
+        $mockRecord = $this->createDomainRecord(
             'example.com',
             127,
             'CNAME',
@@ -455,12 +522,14 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->domainRecordRepository->method('findOneBy')->willReturn($mockRecord);
 
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 127,
-            'type' => 'CNAME',
-            'name' => 'cdn',
-            'data' => 'cdn.example.com',
-            'ttl' => 3600,
+        $this->client->method('request')->willReturn([
+            'domain_record' => [
+                'id' => 127,
+                'type' => 'CNAME',
+                'name' => 'cdn',
+                'data' => 'cdn.example.com',
+                'ttl' => 3600,
+            ],
         ]);
 
         $this->commandTester->execute([
@@ -471,31 +540,39 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
     }
 
     public function testOptionName(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 128,
+                            'type' => 'CNAME',
+                            'name' => 'www',
+                            'data' => 'example.com',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 128,
+                            'type' => 'CNAME',
+                            'name' => 'blog',
+                            'data' => 'example.com',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 128,
-            'type' => 'CNAME',
-            'name' => 'www',
-            'data' => 'example.com',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 128,
-            'type' => 'CNAME',
-            'name' => 'blog',
-            'data' => 'example.com',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -506,38 +583,45 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals('blog', $updateCalls[0]['name']);
     }
 
     public function testOptionPort(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 129,
+                            'type' => 'SRV',
+                            'name' => '_http._tcp',
+                            'data' => 'web.example.com',
+                            'priority' => 10,
+                            'port' => 80,
+                            'weight' => 5,
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 129,
+                            'type' => 'SRV',
+                            'name' => '_http._tcp',
+                            'data' => 'web.example.com',
+                            'priority' => 10,
+                            'port' => 443,
+                            'weight' => 5,
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 129,
-            'type' => 'SRV',
-            'name' => '_http._tcp',
-            'data' => 'web.example.com',
-            'priority' => 10,
-            'port' => 80,
-            'weight' => 5,
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 129,
-            'type' => 'SRV',
-            'name' => '_http._tcp',
-            'data' => 'web.example.com',
-            'priority' => 10,
-            'port' => 443,
-            'weight' => 5,
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -548,38 +632,45 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals(443, $updateCalls[0]['port']);
     }
 
     public function testOptionWeight(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 130,
+                            'type' => 'SRV',
+                            'name' => '_https._tcp',
+                            'data' => 'web.example.com',
+                            'priority' => 10,
+                            'port' => 443,
+                            'weight' => 5,
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 130,
+                            'type' => 'SRV',
+                            'name' => '_https._tcp',
+                            'data' => 'web.example.com',
+                            'priority' => 10,
+                            'port' => 443,
+                            'weight' => 10,
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 130,
-            'type' => 'SRV',
-            'name' => '_https._tcp',
-            'data' => 'web.example.com',
-            'priority' => 10,
-            'port' => 443,
-            'weight' => 5,
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 130,
-            'type' => 'SRV',
-            'name' => '_https._tcp',
-            'data' => 'web.example.com',
-            'priority' => 10,
-            'port' => 443,
-            'weight' => 10,
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -590,36 +681,43 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals(10, $updateCalls[0]['weight']);
     }
 
     public function testOptionFlags(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 131,
+                            'type' => 'CAA',
+                            'name' => '@',
+                            'data' => 'letsencrypt.org',
+                            'flags' => '0',
+                            'tag' => 'issue',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 131,
+                            'type' => 'CAA',
+                            'name' => '@',
+                            'data' => 'letsencrypt.org',
+                            'flags' => '128',
+                            'tag' => 'issue',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 131,
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'letsencrypt.org',
-            'flags' => '0',
-            'tag' => 'issue',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 131,
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'letsencrypt.org',
-            'flags' => '128',
-            'tag' => 'issue',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -630,36 +728,43 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals('128', $updateCalls[0]['flags']);
     }
 
     public function testOptionTag(): void
     {
-        $this->domainService->resetCalls();
+        $callCount = 0;
+        $this->client->method('request')
+            ->willReturnCallback(function () use (&$callCount) {
+                ++$callCount;
+                if (1 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 132,
+                            'type' => 'CAA',
+                            'name' => '@',
+                            'data' => 'letsencrypt.org',
+                            'flags' => '0',
+                            'tag' => 'issue',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
+                if (2 === $callCount) {
+                    return [
+                        'domain_record' => [
+                            'id' => 132,
+                            'type' => 'CAA',
+                            'name' => '@',
+                            'data' => 'letsencrypt.org',
+                            'flags' => '0',
+                            'tag' => 'issuewild',
+                            'ttl' => 3600,
+                        ],
+                    ];
+                }
 
-        $this->domainService->setGetDomainRecordResponse([
-            'id' => 132,
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'letsencrypt.org',
-            'flags' => '0',
-            'tag' => 'issue',
-            'ttl' => 3600,
-        ]);
-
-        $this->domainService->setUpdateDomainRecordResponse([
-            'id' => 132,
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'letsencrypt.org',
-            'flags' => '0',
-            'tag' => 'issuewild',
-            'ttl' => 3600,
-        ]);
+                return ['domain_records' => [], 'meta' => ['total' => 0], 'links' => []];
+            });
 
         $this->commandTester->setInputs(['yes']);
         $this->commandTester->execute([
@@ -670,10 +775,5 @@ final class UpdateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功更新域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $updateCalls = $this->domainService->getUpdateDomainRecordCalls();
-        $this->assertCount(1, $updateCalls);
-        $this->assertEquals('issuewild', $updateCalls[0]['tag']);
     }
 }

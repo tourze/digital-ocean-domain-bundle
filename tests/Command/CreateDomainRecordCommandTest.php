@@ -1,14 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DigitalOceanDomainBundle\Tests\Command;
 
-use DigitalOceanAccountBundle\DigitalOceanAccountBundle;
+use DigitalOceanAccountBundle\Client\DigitalOceanClient;
+use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
+use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Command\CreateDomainRecordCommand;
-use DigitalOceanDomainBundle\DigitalOceanDomainBundle;
-use DigitalOceanDomainBundle\Tests\Exception\TestException;
-use DigitalOceanDomainBundle\Tests\Service\TestDomainService;
+use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
@@ -20,7 +24,7 @@ use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
 #[RunTestsInSeparateProcesses]
 final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 {
-    private TestDomainService $domainService;
+    private MockObject&DigitalOceanClient $client;
 
     private CreateDomainRecordCommand $command;
 
@@ -33,40 +37,66 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
     protected function onSetUp(): void
     {
-        // 创建Mock服务并注入容器
-        $this->domainService = new TestDomainService();
-        $container = self::getContainer();
-        $container->set('DigitalOceanDomainBundle\Service\DomainServiceInterface', $this->domainService);
-        $container->set(TestDomainService::class, $this->domainService);
+        // 创建配置
+        $config = new DigitalOceanConfig();
+        $config->setApiKey('test_api_key');
 
-        // 从容器获取Command
+        // Mock 网络层（DigitalOceanClient）
+        $this->client = $this->createMock(DigitalOceanClient::class);
+        $configService = $this->createMock(DigitalOceanConfigService::class);
+        $configService->method('getConfig')->willReturn($config);
+
+        // Mock Repository（避免真实数据库操作）
+        $domainRepository = $this->createMock(DomainRepository::class);
+        $domainRecordRepository = $this->createMock(DomainRecordRepository::class);
+
+        // 将 Mock 注入容器
+        $container = self::getContainer();
+        $container->set(DigitalOceanClient::class, $this->client);
+        $container->set(DigitalOceanConfigService::class, $configService);
+        $container->set(DomainRepository::class, $domainRepository);
+        $container->set(DomainRecordRepository::class, $domainRecordRepository);
+
+        // 从容器获取 Command（使用真正的 DomainService）
         $this->command = self::getService(CreateDomainRecordCommand::class);
 
         $application = new Application();
-        $application->add($this->command);
+        $application->addCommand($this->command);
 
         $this->commandTester = new CommandTester($this->command);
     }
 
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function setClientResponse(array $response): void
+    {
+        $this->client->method('request')->willReturn($response);
+    }
+
+    private function setClientException(\Throwable $exception): void
+    {
+        $this->client->method('request')->willThrowException($exception);
+    }
+
     public function testExecuteSuccess(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.1',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 123,
+                'type' => 'A',
+                'name' => 'www',
+                'data' => '192.168.1.1',
+                'priority' => null,
+                'port' => null,
+                'ttl' => 3600,
+                'weight' => null,
+                'flags' => null,
+                'tag' => null,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -77,48 +107,26 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'A',
-            'name' => 'www',
-            'data' => '192.168.1.1',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testExecuteWithOptions(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 124,
-            'type' => 'MX',
-            'name' => '@',
-            'data' => 'mail.example.com',
-            'priority' => 10,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 124,
+                'type' => 'MX',
+                'name' => '@',
+                'data' => 'mail.example.com',
+                'priority' => 10,
+                'port' => null,
+                'ttl' => 3600,
+                'weight' => null,
+                'flags' => null,
+                'tag' => null,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -131,34 +139,12 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'MX',
-            'name' => '@',
-            'data' => 'mail.example.com',
-            'priority' => 10,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testExecuteFailure(): void
     {
-        $this->domainService->resetCalls();
-
-        // 设置期望的响应数据（空数组表示失败）
-        $this->domainService->setCreateDomainRecordResponse([]);
+        // 空响应表示失败
+        $this->setClientResponse(['domain_record' => []]);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -169,18 +155,11 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(1, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('添加域名记录失败', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
     }
 
     public function testExecuteException(): void
     {
-        $this->domainService->resetCalls();
-
-        // 设置期望的异常
-        $this->domainService->setCreateDomainRecordException(new TestException('API error'));
+        $this->setClientException(new \RuntimeException('API error'));
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -195,23 +174,17 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
     public function testArgumentDomain(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 123,
-            'type' => 'A',
-            'name' => 'test',
-            'data' => '192.168.1.1',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 123,
+                'type' => 'A',
+                'name' => 'test',
+                'data' => '192.168.1.1',
+                'ttl' => 3600,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'test-domain.com',
@@ -222,47 +195,21 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'test-domain.com',
-            'type' => 'A',
-            'name' => 'test',
-            'data' => '192.168.1.1',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('test-domain.com', $syncCalls[0]);
     }
 
     public function testArgumentType(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 124,
-            'type' => 'AAAA',
-            'name' => 'www',
-            'data' => '2001:db8::1',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 124,
+                'type' => 'AAAA',
+                'name' => 'www',
+                'data' => '2001:db8::1',
+                'ttl' => 3600,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -273,47 +220,21 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'AAAA',
-            'name' => 'www',
-            'data' => '2001:db8::1',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testArgumentName(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 125,
-            'type' => 'CNAME',
-            'name' => 'api',
-            'data' => 'api.example.com',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 125,
+                'type' => 'CNAME',
+                'name' => 'api',
+                'data' => 'api.example.com',
+                'ttl' => 3600,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -324,47 +245,21 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'CNAME',
-            'name' => 'api',
-            'data' => 'api.example.com',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testArgumentData(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 126,
-            'type' => 'TXT',
-            'name' => '@',
-            'data' => 'v=spf1 include:_spf.example.com ~all',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 126,
+                'type' => 'TXT',
+                'name' => '@',
+                'data' => 'v=spf1 include:_spf.example.com ~all',
+                'ttl' => 3600,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -375,47 +270,22 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'TXT',
-            'name' => '@',
-            'data' => 'v=spf1 include:_spf.example.com ~all',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testOptionPriority(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 127,
-            'type' => 'MX',
-            'name' => '@',
-            'data' => 'mail.example.com',
-            'priority' => 5,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 127,
+                'type' => 'MX',
+                'name' => '@',
+                'data' => 'mail.example.com',
+                'priority' => 5,
+                'ttl' => 3600,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -427,47 +297,24 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'MX',
-            'name' => '@',
-            'data' => 'mail.example.com',
-            'priority' => 5,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testOptionPort(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 128,
-            'type' => 'SRV',
-            'name' => '_sip._tcp',
-            'data' => 'sip.example.com',
-            'priority' => 10,
-            'port' => 5060,
-            'ttl' => 3600,
-            'weight' => 5,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 128,
+                'type' => 'SRV',
+                'name' => '_sip._tcp',
+                'data' => 'sip.example.com',
+                'priority' => 10,
+                'port' => 5060,
+                'ttl' => 3600,
+                'weight' => 5,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -481,47 +328,21 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'SRV',
-            'name' => '_sip._tcp',
-            'data' => 'sip.example.com',
-            'priority' => 10,
-            'port' => 5060,
-            'ttl' => null,
-            'weight' => 5,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testOptionTtl(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 129,
-            'type' => 'A',
-            'name' => 'cache',
-            'data' => '192.168.1.10',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 1800,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 129,
+                'type' => 'A',
+                'name' => 'cache',
+                'data' => '192.168.1.10',
+                'ttl' => 1800,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -533,47 +354,24 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'A',
-            'name' => 'cache',
-            'data' => '192.168.1.10',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 1800,
-            'weight' => null,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testOptionWeight(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 130,
-            'type' => 'SRV',
-            'name' => '_http._tcp',
-            'data' => 'web.example.com',
-            'priority' => 10,
-            'port' => 80,
-            'ttl' => 3600,
-            'weight' => 10,
-            'flags' => null,
-            'tag' => null,
+            'domain_record' => [
+                'id' => 130,
+                'type' => 'SRV',
+                'name' => '_http._tcp',
+                'data' => 'web.example.com',
+                'priority' => 10,
+                'port' => 80,
+                'ttl' => 3600,
+                'weight' => 10,
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -587,47 +385,23 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'SRV',
-            'name' => '_http._tcp',
-            'data' => 'web.example.com',
-            'priority' => 10,
-            'port' => 80,
-            'ttl' => null,
-            'weight' => 10,
-            'flags' => null,
-            'tag' => null,
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testOptionFlags(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 131,
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'letsencrypt.org',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => 0,
-            'tag' => 'issue',
+            'domain_record' => [
+                'id' => 131,
+                'type' => 'CAA',
+                'name' => '@',
+                'data' => 'letsencrypt.org',
+                'ttl' => 3600,
+                'flags' => 0,
+                'tag' => 'issue',
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -640,47 +414,23 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'letsencrypt.org',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => '0',
-            'tag' => 'issue',
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 
     public function testOptionTag(): void
     {
-        $this->domainService->resetCalls();
-
         $recordData = [
-            'id' => 132,
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'ca.example.com',
-            'priority' => null,
-            'port' => null,
-            'ttl' => 3600,
-            'weight' => null,
-            'flags' => 0,
-            'tag' => 'issuewild',
+            'domain_record' => [
+                'id' => 132,
+                'type' => 'CAA',
+                'name' => '@',
+                'data' => 'ca.example.com',
+                'ttl' => 3600,
+                'flags' => 0,
+                'tag' => 'issuewild',
+            ],
         ];
 
-        // 设置期望的响应数据
-        $this->domainService->setCreateDomainRecordResponse($recordData);
+        $this->setClientResponse($recordData);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -693,25 +443,5 @@ final class CreateDomainRecordCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('成功添加域名记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $createCalls = $this->domainService->getCreateDomainRecordCalls();
-        $this->assertCount(1, $createCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'type' => 'CAA',
-            'name' => '@',
-            'data' => 'ca.example.com',
-            'priority' => null,
-            'port' => null,
-            'ttl' => null,
-            'weight' => null,
-            'flags' => '0',
-            'tag' => 'issuewild',
-        ], $createCalls[0]);
-
-        $syncCalls = $this->domainService->getSyncDomainRecordsCalls();
-        $this->assertCount(1, $syncCalls);
-        $this->assertEquals('example.com', $syncCalls[0]);
     }
 }

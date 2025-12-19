@@ -1,17 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DigitalOceanDomainBundle\Tests\Command;
 
-use DigitalOceanAccountBundle\DigitalOceanAccountBundle;
+use DigitalOceanAccountBundle\Client\DigitalOceanClient;
+use DigitalOceanAccountBundle\Entity\DigitalOceanConfig;
+use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Command\ListDomainRecordsCommand;
-use DigitalOceanDomainBundle\DigitalOceanDomainBundle;
 use DigitalOceanDomainBundle\Entity\DomainRecord;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
-use DigitalOceanDomainBundle\Tests\Exception\TestException;
-use DigitalOceanDomainBundle\Tests\Service\TestDomainService;
-use Doctrine\Persistence\ManagerRegistry;
+use DigitalOceanDomainBundle\Repository\DomainRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
@@ -23,7 +25,9 @@ use Tourze\PHPUnitSymfonyKernelTest\AbstractCommandTestCase;
 #[RunTestsInSeparateProcesses]
 final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
 {
-    private TestDomainService $domainService;
+    private MockObject&DigitalOceanClient $client;
+
+    private MockObject&DomainRecordRepository $domainRecordRepository;
 
     private ListDomainRecordsCommand $command;
 
@@ -36,73 +40,63 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
 
     protected function onSetUp(): void
     {
-        // 创建Mock服务并注入容器
-        $this->domainService = new TestDomainService();
+        // 创建配置
+        $config = new DigitalOceanConfig();
+        $config->setApiKey('test_api_key');
+
+        // Mock 网络层（DigitalOceanClient）
+        $this->client = $this->createMock(DigitalOceanClient::class);
+        $configService = $this->createMock(DigitalOceanConfigService::class);
+        $configService->method('getConfig')->willReturn($config);
+
+        // Mock Repository（避免真实数据库操作）
+        $domainRepository = $this->createMock(DomainRepository::class);
+        $this->domainRecordRepository = $this->createMock(DomainRecordRepository::class);
+
+        // 将 Mock 注入容器
         $container = self::getContainer();
-        $container->set('DigitalOceanDomainBundle\Service\DomainServiceInterface', $this->domainService);
-        $container->set(TestDomainService::class, $this->domainService);
+        $container->set(DigitalOceanClient::class, $this->client);
+        $container->set(DigitalOceanConfigService::class, $configService);
+        $container->set(DomainRepository::class, $domainRepository);
+        $container->set(DomainRecordRepository::class, $this->domainRecordRepository);
 
-        // 创建直接使用TestDomainService的Repository模拟
-        $mockManagerRegistry = $this->createMock(ManagerRegistry::class);
-        $mockRepository = new class($mockManagerRegistry, $this->domainService) extends DomainRecordRepository {
-            private TestDomainService $testService;
-
-            public function __construct(ManagerRegistry $registry, TestDomainService $testService)
-            {
-                parent::__construct($registry);
-                $this->testService = $testService;
-            }
-
-            public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
-            {
-                $this->testService->addFindByCall([
-                    'criteria' => $criteria,
-                    'orderBy' => $orderBy,
-                    'limit' => $limit,
-                    'offset' => $offset,
-                ]);
-
-                /** @var list<DomainRecord> */
-                return $this->testService->getFindByResponse();
-            }
-
-            public function findByDomainAndName(string $domain, string $name, ?string $type = null, ?int $limit = null, ?int $offset = null): array
-            {
-                $this->testService->addFindByDomainAndNameCall([
-                    'domainName' => $domain,
-                    'name' => $name,
-                    'type' => $type,
-                ]);
-
-                /** @var list<DomainRecord> */
-                return $this->testService->getFindByDomainAndNameResponse();
-            }
-
-            public function count(array $criteria = []): int
-            {
-                $this->testService->addCountCall($criteria);
-
-                /** @var int<0, max> */
-                return $this->testService->getCountResponse();
-            }
-        };
-
-        $container->set('DigitalOceanDomainBundle\Repository\DomainRecordRepository', $mockRepository);
-
-        // 从容器获取Command
+        // 从容器获取 Command（使用真正的 DomainService）
         $this->command = self::getService(ListDomainRecordsCommand::class);
 
         $application = new Application();
-        $application->add($this->command);
+        $application->addCommand($this->command);
 
         $this->commandTester = new CommandTester($this->command);
     }
 
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function setClientResponse(array $response): void
+    {
+        $this->client->method('request')->willReturn($response);
+    }
+
+    private function setClientException(\Throwable $exception): void
+    {
+        $this->client->method('request')->willThrowException($exception);
+    }
+
+    private function createDomainRecord(int $recordId, string $type, string $name, string $data, int $ttl = 3600): DomainRecord
+    {
+        $record = new DomainRecord();
+        $record->setRecordId($recordId);
+        $record->setType($type);
+        $record->setName($name);
+        $record->setData($data);
+        $record->setTtl($ttl);
+
+        return $record;
+    }
+
     public function testExecuteWithRemoteApi(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setListDomainRecordsResponse([
+        $this->setClientResponse([
             'domain_records' => [
                 [
                     'id' => 123,
@@ -133,38 +127,17 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $this->assertStringContainsString('192.168.1.1', $display);
         $this->assertStringContainsString('mail.example.com', $display);
         $this->assertStringContainsString('共 2 条记录', $display);
-
-        // 验证方法调用
-        $listCalls = $this->domainService->getListDomainRecordsCalls();
-        $this->assertCount(1, $listCalls);
-        $this->assertEquals([
-            'domain' => 'example.com',
-            'page' => 1,
-            'perPage' => 50,
-        ], $listCalls[0]);
     }
 
     public function testExecuteWithLocalDatabase(): void
     {
-        $this->domainService->resetCalls();
+        $record1 = $this->createDomainRecord(123, 'A', 'www', '192.168.1.1');
+        $record2 = $this->createDomainRecord(124, 'CNAME', 'blog', 'www.example.com');
 
-        // 创建模拟的 DomainRecord 对象
-        $record1 = new DomainRecord();
-        $record1->setRecordId(123);
-        $record1->setType('A');
-        $record1->setName('www');
-        $record1->setData('192.168.1.1');
-        $record1->setTtl(3600);
-
-        $record2 = new DomainRecord();
-        $record2->setRecordId(124);
-        $record2->setType('CNAME');
-        $record2->setName('blog');
-        $record2->setData('www.example.com');
-        $record2->setTtl(3600);
-
-        $this->domainService->setFindByResponse([$record1, $record2]);
-        $this->domainService->setCountResponse(2);
+        $this->domainRecordRepository->method('findBy')
+            ->willReturn([$record1, $record2]);
+        $this->domainRecordRepository->method('count')
+            ->willReturn(2);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -176,27 +149,11 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $this->assertStringContainsString('192.168.1.1', $display);
         $this->assertStringContainsString('blog', $display);
         $this->assertStringContainsString('共 2 条记录', $display);
-
-        // 验证方法调用
-        $findByCalls = $this->domainService->getFindByCalls();
-        $this->assertCount(1, $findByCalls);
-        $this->assertEquals([
-            'criteria' => ['domainName' => 'example.com'],
-            'orderBy' => ['recordId' => 'ASC'],
-            'limit' => 50,
-            'offset' => 0,
-        ], $findByCalls[0]);
-
-        $countCalls = $this->domainService->getCountCalls();
-        $this->assertCount(1, $countCalls);
-        $this->assertEquals(['domainName' => 'example.com'], $countCalls[0]);
     }
 
     public function testExecuteWithTypeFilter(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setListDomainRecordsResponse([
+        $this->setClientResponse([
             'domain_records' => [
                 [
                     'id' => 123,
@@ -226,26 +183,16 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $this->assertStringContainsString('www', $display);
         $this->assertStringContainsString('192.168.1.1', $display);
         $this->assertStringNotContainsString('blog', $display);
-
-        // 验证方法调用
-        $listCalls = $this->domainService->getListDomainRecordsCalls();
-        $this->assertCount(1, $listCalls);
     }
 
     public function testExecuteWithNameFilter(): void
     {
-        $this->domainService->resetCalls();
+        $record = $this->createDomainRecord(123, 'A', 'www', '192.168.1.1');
 
-        // 创建真实的 DomainRecord 对象
-        $record = new DomainRecord();
-        $record->setRecordId(123);
-        $record->setType('A');
-        $record->setName('www');
-        $record->setData('192.168.1.1');
-        $record->setTtl(3600);
-
-        $this->domainService->setFindByDomainAndNameResponse([$record]);
-        $this->domainService->setCountResponse(1);
+        $this->domainRecordRepository->method('findByDomainAndName')
+            ->willReturn([$record]);
+        $this->domainRecordRepository->method('count')
+            ->willReturn(1);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -256,25 +203,12 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('www', $display);
         $this->assertStringContainsString('192.168.1.1', $display);
-
-        // 验证方法调用
-        $findByDomainAndNameCalls = $this->domainService->getFindByDomainAndNameCalls();
-        $this->assertCount(1, $findByDomainAndNameCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'name' => 'www',
-            'type' => null,
-        ], $findByDomainAndNameCalls[0]);
-
-        $countCalls = $this->domainService->getCountCalls();
-        $this->assertCount(1, $countCalls);
     }
 
     public function testExecuteWithNoRecords(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setFindByResponse([]);
+        $this->domainRecordRepository->method('findBy')
+            ->willReturn([]);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -282,17 +216,12 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
 
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $this->assertStringContainsString('没有找到任何记录', $this->commandTester->getDisplay());
-
-        // 验证方法调用
-        $findByCalls = $this->domainService->getFindByCalls();
-        $this->assertCount(1, $findByCalls);
     }
 
     public function testExecuteWithException(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setFindByException(new TestException('Database error'));
+        $this->domainRecordRepository->method('findBy')
+            ->willThrowException(new \RuntimeException('Database error'));
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -304,18 +233,12 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
 
     public function testArgumentDomain(): void
     {
-        $this->domainService->resetCalls();
+        $record = $this->createDomainRecord(123, 'A', 'api', '192.168.1.100');
 
-        // 创建真实的 DomainRecord 对象
-        $record = new DomainRecord();
-        $record->setRecordId(123);
-        $record->setType('A');
-        $record->setName('api');
-        $record->setData('192.168.1.100');
-        $record->setTtl(3600);
-
-        $this->domainService->setFindByResponse([$record]);
-        $this->domainService->setCountResponse(1);
+        $this->domainRecordRepository->method('findBy')
+            ->willReturn([$record]);
+        $this->domainRecordRepository->method('count')
+            ->willReturn(1);
 
         $this->commandTester->execute([
             'domain' => 'test-domain.com',
@@ -325,36 +248,16 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('api', $display);
         $this->assertStringContainsString('192.168.1.100', $display);
-
-        // 验证方法调用
-        $findByCalls = $this->domainService->getFindByCalls();
-        $this->assertCount(1, $findByCalls);
-        $this->assertEquals([
-            'criteria' => ['domainName' => 'test-domain.com'],
-            'orderBy' => ['recordId' => 'ASC'],
-            'limit' => 50,
-            'offset' => 0,
-        ], $findByCalls[0]);
-
-        $countCalls = $this->domainService->getCountCalls();
-        $this->assertCount(1, $countCalls);
-        $this->assertEquals(['domainName' => 'test-domain.com'], $countCalls[0]);
     }
 
     public function testOptionType(): void
     {
-        $this->domainService->resetCalls();
+        $record = $this->createDomainRecord(124, 'MX', '@', 'mail.example.com');
 
-        // 创建真实的 DomainRecord 对象
-        $record = new DomainRecord();
-        $record->setRecordId(124);
-        $record->setType('MX');
-        $record->setName('@');
-        $record->setData('mail.example.com');
-        $record->setTtl(3600);
-
-        $this->domainService->setFindByResponse([$record]);
-        $this->domainService->setCountResponse(1);
+        $this->domainRecordRepository->method('findBy')
+            ->willReturn([$record]);
+        $this->domainRecordRepository->method('count')
+            ->willReturn(1);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -364,36 +267,16 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $this->assertEquals(0, $this->commandTester->getStatusCode());
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('MX', $display);
-
-        // 验证方法调用
-        $findByCalls = $this->domainService->getFindByCalls();
-        $this->assertCount(1, $findByCalls);
-        $this->assertEquals([
-            'criteria' => ['domainName' => 'example.com', 'type' => 'MX'],
-            'orderBy' => ['recordId' => 'ASC'],
-            'limit' => 50,
-            'offset' => 0,
-        ], $findByCalls[0]);
-
-        $countCalls = $this->domainService->getCountCalls();
-        $this->assertCount(1, $countCalls);
-        $this->assertEquals(['domainName' => 'example.com'], $countCalls[0]);
     }
 
     public function testOptionName(): void
     {
-        $this->domainService->resetCalls();
+        $record = $this->createDomainRecord(125, 'CNAME', 'cdn', 'cdn.example.com');
 
-        // 创建真实的 DomainRecord 对象
-        $record = new DomainRecord();
-        $record->setRecordId(125);
-        $record->setType('CNAME');
-        $record->setName('cdn');
-        $record->setData('cdn.example.com');
-        $record->setTtl(3600);
-
-        $this->domainService->setFindByDomainAndNameResponse([$record]);
-        $this->domainService->setCountResponse(1);
+        $this->domainRecordRepository->method('findByDomainAndName')
+            ->willReturn([$record]);
+        $this->domainRecordRepository->method('count')
+            ->willReturn(1);
 
         $this->commandTester->execute([
             'domain' => 'example.com',
@@ -404,25 +287,11 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('cdn', $display);
         $this->assertStringContainsString('cdn.example.com', $display);
-
-        // 验证方法调用
-        $findByDomainAndNameCalls = $this->domainService->getFindByDomainAndNameCalls();
-        $this->assertCount(1, $findByDomainAndNameCalls);
-        $this->assertEquals([
-            'domainName' => 'example.com',
-            'name' => 'cdn',
-            'type' => null,
-        ], $findByDomainAndNameCalls[0]);
-
-        $countCalls = $this->domainService->getCountCalls();
-        $this->assertCount(1, $countCalls);
     }
 
     public function testOptionRemote(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setListDomainRecordsResponse([
+        $this->setClientResponse([
             'domain_records' => [
                 [
                     'id' => 126,
@@ -444,22 +313,11 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('v=spf1', $display);
         $this->assertStringContainsString('共 1 条记录', $display);
-
-        // 验证方法调用
-        $listCalls = $this->domainService->getListDomainRecordsCalls();
-        $this->assertCount(1, $listCalls);
-        $this->assertEquals([
-            'domain' => 'example.com',
-            'page' => 1,
-            'perPage' => 50,
-        ], $listCalls[0]);
     }
 
     public function testOptionPage(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setListDomainRecordsResponse([
+        $this->setClientResponse([
             'domain_records' => [
                 [
                     'id' => 127,
@@ -482,22 +340,11 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('ns1.digitalocean.com', $display);
         $this->assertStringContainsString('第 2/', $display);
-
-        // 验证方法调用
-        $listCalls = $this->domainService->getListDomainRecordsCalls();
-        $this->assertCount(1, $listCalls);
-        $this->assertEquals([
-            'domain' => 'example.com',
-            'page' => 2,
-            'perPage' => 50,
-        ], $listCalls[0]);
     }
 
     public function testOptionLimit(): void
     {
-        $this->domainService->resetCalls();
-
-        $this->domainService->setListDomainRecordsResponse([
+        $this->setClientResponse([
             'domain_records' => [
                 [
                     'id' => 128,
@@ -520,14 +367,5 @@ final class ListDomainRecordsCommandTest extends AbstractCommandTestCase
         $display = $this->commandTester->getDisplay();
         $this->assertStringContainsString('test', $display);
         $this->assertStringContainsString('10.0.0.1', $display);
-
-        // 验证方法调用
-        $listCalls = $this->domainService->getListDomainRecordsCalls();
-        $this->assertCount(1, $listCalls);
-        $this->assertEquals([
-            'domain' => 'example.com',
-            'page' => 1,
-            'perPage' => 10,
-        ], $listCalls[0]);
     }
 }

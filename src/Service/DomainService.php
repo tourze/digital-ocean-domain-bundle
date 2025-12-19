@@ -36,6 +36,7 @@ readonly class DomainService implements DomainServiceInterface
         private DomainRecordRepository $domainRecordRepository,
         private LoggerInterface $logger,
         private ResponseValidator $responseValidator = new ResponseValidator(),
+        private DomainRecordMapper $domainRecordMapper = new DomainRecordMapper(),
     ) {
     }
 
@@ -56,7 +57,7 @@ readonly class DomainService implements DomainServiceInterface
             }
 
             $apiKey = $config->getApiKey();
-            if (empty($apiKey)) {
+            if (null === $apiKey || '' === $apiKey) {
                 throw new ConfigurationException('DigitalOcean API Key 不能为空');
             }
 
@@ -76,14 +77,7 @@ readonly class DomainService implements DomainServiceInterface
      */
     public function listDomains(int $page = 1, int $perPage = 20): array
     {
-        // 参数验证
-        if ($page < 1) {
-            throw new \InvalidArgumentException('页码必须大于0');
-        }
-
-        if ($perPage < 1 || $perPage > 200) {
-            throw new \InvalidArgumentException('每页数量必须在1-200之间');
-        }
+        $this->validatePaginationParams($page, $perPage);
 
         try {
             $request = new ListDomainsRequest();
@@ -106,19 +100,26 @@ readonly class DomainService implements DomainServiceInterface
     }
 
     /**
+     * 验证分页参数
+     */
+    private function validatePaginationParams(int $page, int $perPage): void
+    {
+        if ($page < 1) {
+            throw new \InvalidArgumentException('页码必须大于0');
+        }
+
+        if ($perPage < 1 || $perPage > 200) {
+            throw new \InvalidArgumentException('每页数量必须在1-200之间');
+        }
+    }
+
+    /**
      * 获取单个域名信息
      * @return array<string, mixed>
      */
     public function getDomain(string $domainName): array
     {
-        // 参数验证
-        if (empty(trim($domainName))) {
-            throw new \InvalidArgumentException('域名不能为空');
-        }
-
-        if (strlen($domainName) > 253) {
-            throw new \InvalidArgumentException('域名长度不能超过253个字符');
-        }
+        $this->validateDomainName($domainName);
 
         try {
             $request = new GetDomainRequest($domainName);
@@ -133,6 +134,20 @@ readonly class DomainService implements DomainServiceInterface
                 'domain_name' => $domainName,
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * 验证域名参数
+     */
+    private function validateDomainName(string $domainName): void
+    {
+        if ('' === trim($domainName)) {
+            throw new \InvalidArgumentException('域名不能为空');
+        }
+
+        if (strlen($domainName) > 253) {
+            throw new \InvalidArgumentException('域名长度不能超过253个字符');
         }
     }
 
@@ -466,68 +481,7 @@ readonly class DomainService implements DomainServiceInterface
      */
     private function updateRecordFromData(DomainRecord $record, array $recordData, string $domainName): void
     {
-        $this->setRecordBasicFields($record, $recordData, $domainName);
-        $this->setRecordOptionalFields($record, $recordData);
-    }
-
-    /**
-     * @param array<string, mixed> $recordData
-     */
-    private function setRecordBasicFields(DomainRecord $record, array $recordData, string $domainName): void
-    {
-        $record->setDomainName($domainName);
-
-        $recordId = $recordData['id'] ?? 0;
-        if (!is_numeric($recordId)) {
-            throw new \InvalidArgumentException('Record ID must be numeric');
-        }
-        $record->setRecordId((int) $recordId);
-
-        $this->setRecordFieldIfExists($record, $recordData, 'type', 'setType');
-        $this->setRecordFieldIfExists($record, $recordData, 'name', 'setName');
-        $this->setRecordFieldIfExists($record, $recordData, 'data', 'setData');
-    }
-
-    /**
-     * @param array<string, mixed> $recordData
-     */
-    private function setRecordOptionalFields(DomainRecord $record, array $recordData): void
-    {
-        $this->setRecordFieldIfExists($record, $recordData, 'priority', 'setPriority');
-        $this->setRecordFieldIfExists($record, $recordData, 'port', 'setPort');
-        $this->setRecordFieldIfExists($record, $recordData, 'ttl', 'setTtl');
-        $this->setRecordFieldIfExists($record, $recordData, 'weight', 'setWeight');
-        $this->setRecordFieldIfExists($record, $recordData, 'flags', 'setFlags');
-        $this->setRecordFieldIfExists($record, $recordData, 'tag', 'setTag');
-    }
-
-    /**
-     * @param array<string, mixed> $recordData
-     */
-    private function setRecordFieldIfExists(DomainRecord $record, array $recordData, string $field, string $setter): void
-    {
-        if (!isset($recordData[$field])) {
-            return;
-        }
-
-        $value = $recordData[$field];
-        $this->applyRecordFieldSetter($record, $setter, $value);
-    }
-
-    private function applyRecordFieldSetter(DomainRecord $record, string $setter, mixed $value): void
-    {
-        match ($setter) {
-            'setType' => $record->setType(is_string($value) ? $value : ''),
-            'setName' => $record->setName(is_string($value) ? $value : ''),
-            'setData' => $record->setData(is_string($value) ? $value : ''),
-            'setPriority' => $record->setPriority(is_numeric($value) ? (int) $value : null),
-            'setPort' => $record->setPort(is_numeric($value) ? (int) $value : null),
-            'setTtl' => $record->setTtl(is_numeric($value) ? (int) $value : null),
-            'setWeight' => $record->setWeight(is_numeric($value) ? (int) $value : null),
-            'setFlags' => $record->setFlags(is_string($value) ? $value : null),
-            'setTag' => $record->setTag(is_string($value) ? $value : null),
-            default => throw new ConfigurationException("Unknown setter: {$setter}"),
-        };
+        $this->domainRecordMapper->updateRecordFromData($record, $recordData, $domainName);
     }
 
     private function setOptionalRequestParameters(
@@ -538,6 +492,17 @@ readonly class DomainService implements DomainServiceInterface
         ?int $weight,
         ?string $flags,
         ?string $tag,
+    ): void {
+        $this->setRequestIntParams($request, $priority, $port, $ttl, $weight);
+        $this->setRequestStringParams($request, $flags, $tag);
+    }
+
+    private function setRequestIntParams(
+        CreateDomainRecordRequest|UpdateDomainRecordRequest $request,
+        ?int $priority,
+        ?int $port,
+        ?int $ttl,
+        ?int $weight,
     ): void {
         if (null !== $priority) {
             $request->setPriority($priority);
@@ -551,6 +516,13 @@ readonly class DomainService implements DomainServiceInterface
         if (null !== $weight) {
             $request->setWeight($weight);
         }
+    }
+
+    private function setRequestStringParams(
+        CreateDomainRecordRequest|UpdateDomainRecordRequest $request,
+        ?string $flags,
+        ?string $tag,
+    ): void {
         if (null !== $flags) {
             $request->setFlags($flags);
         }

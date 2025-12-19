@@ -30,19 +30,19 @@ class CreateDomainRecordRequest extends DigitalOceanRequest
         private readonly string $data,
     ) {
         // 参数验证
-        if (empty(trim($this->domainName))) {
+        if ('' === trim($this->domainName)) {
             throw new \InvalidArgumentException('Domain name cannot be empty');
         }
 
-        if (empty(trim($this->type))) {
+        if ('' === trim($this->type)) {
             throw new \InvalidArgumentException('Record type cannot be empty');
         }
 
-        if (empty(trim($this->name))) {
+        if ('' === trim($this->name)) {
             throw new \InvalidArgumentException('Record name cannot be empty');
         }
 
-        if (empty(trim($this->data))) {
+        if ('' === trim($this->data)) {
             throw new \InvalidArgumentException('Record data cannot be empty');
         }
 

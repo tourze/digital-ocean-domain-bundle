@@ -33,12 +33,34 @@ class DomainRecordRepository extends ServiceEntityRepository
      */
     public function findByDomainAndName(string $domain, string $name, ?string $type = null, ?int $limit = null, ?int $offset = null): array
     {
-        // 参数验证
-        if (empty(trim($domain))) {
+        $this->validateDomainAndNameParameters($domain, $name, $limit, $offset);
+
+        $qb = $this->createQueryBuilder('r')
+            ->where('r.domainName = :domain')
+            ->andWhere('r.name LIKE :name')
+            ->setParameter('domain', $domain)
+            ->setParameter('name', '%' . $name . '%')
+            ->orderBy('r.recordId', 'ASC')
+        ;
+
+        $this->applyOptionalFilters($qb, $type, $limit, $offset);
+
+        /** @var list<DomainRecord> $result */
+        $result = $qb->getQuery()->getResult();
+
+        return $this->validateQueryResult($result);
+    }
+
+    /**
+     * 验证域名和名称参数
+     */
+    private function validateDomainAndNameParameters(string $domain, string $name, ?int $limit, ?int $offset): void
+    {
+        if ('' === trim($domain)) {
             throw new \InvalidArgumentException('Domain cannot be empty');
         }
 
-        if (empty(trim($name))) {
+        if ('' === trim($name)) {
             throw new \InvalidArgumentException('Name cannot be empty');
         }
 
@@ -50,22 +72,22 @@ class DomainRecordRepository extends ServiceEntityRepository
             throw new \InvalidArgumentException('Record name too long');
         }
 
-        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+        if (null !== $limit && ($limit < 1 || $limit > 1000)) {
             throw new \InvalidArgumentException('Limit must be between 1 and 1000');
         }
 
-        if ($offset !== null && $offset < 0) {
+        if (null !== $offset && $offset < 0) {
             throw new \InvalidArgumentException('Offset must be non-negative');
         }
+    }
 
-        $qb = $this->createQueryBuilder('r')
-            ->where('r.domainName = :domain')
-            ->andWhere('r.name LIKE :name')
-            ->setParameter('domain', $domain)
-            ->setParameter('name', '%' . $name . '%')
-            ->orderBy('r.recordId', 'ASC')
-        ;
-
+    /**
+     * 应用可选的查询过滤条件
+     *
+     * @param \Doctrine\ORM\QueryBuilder $qb
+     */
+    private function applyOptionalFilters(\Doctrine\ORM\QueryBuilder $qb, ?string $type, ?int $limit, ?int $offset): void
+    {
         if (null !== $type) {
             $qb->andWhere('r.type = :type')
                 ->setParameter('type', $type)
@@ -79,11 +101,16 @@ class DomainRecordRepository extends ServiceEntityRepository
         if (null !== $offset) {
             $qb->setFirstResult($offset);
         }
+    }
 
-        /** @var list<DomainRecord> $result */
-        $result = $qb->getQuery()->getResult();
-
-        // Ensure result is an array of DomainRecord entities
+    /**
+     * 验证查询结果
+     *
+     * @param mixed $result
+     * @return list<DomainRecord>
+     */
+    private function validateQueryResult(mixed $result): array
+    {
         if (!is_array($result)) {
             throw new \RuntimeException('Query result should be an array');
         }

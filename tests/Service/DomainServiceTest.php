@@ -8,7 +8,6 @@ use DigitalOceanAccountBundle\Service\DigitalOceanConfigService;
 use DigitalOceanDomainBundle\Repository\DomainRecordRepository;
 use DigitalOceanDomainBundle\Repository\DomainRepository;
 use DigitalOceanDomainBundle\Service\DomainService;
-use DigitalOceanDomainBundle\Tests\Exception\TestException;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -171,7 +170,7 @@ final class DomainServiceTest extends AbstractIntegrationTestCase
 
     public function testDeleteDomainFailure(): void
     {
-        $this->setClientException(new TestException('API Error'));
+        $this->setClientException(new \RuntimeException('API Error'));
 
         // Logger error 调用已通过匿名类实现自动记录
 
@@ -299,7 +298,7 @@ final class DomainServiceTest extends AbstractIntegrationTestCase
 
     public function testDeleteDomainRecordFailure(): void
     {
-        $this->setClientException(new TestException('API Error'));
+        $this->setClientException(new \RuntimeException('API Error'));
 
         // Logger error 调用已通过匿名类实现自动记录
 
